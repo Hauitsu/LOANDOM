@@ -387,8 +387,21 @@ function coerce_(name, obj) {
   bools.forEach(function (field) {
     if (field in obj) obj[field] = toBool_(obj[field]);
   });
+  if ((name === 'Runs' || name === 'Ledger') && 'week' in obj) {
+    obj.week = toWeekKey_(obj.week);
+  }
   if ('id' in obj) obj.id = String(obj.id || '');
   return obj;
+}
+
+/** Sheets may store `2026-11-11` as a Date; normalise to a plain calendar day. */
+function toWeekKey_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    return Utilities.formatDate(value, ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+  }
+  var text = String(value === null || value === undefined ? '' : value).trim();
+  if (text.length > 10 && text.charAt(10) === 'T') return text.slice(0, 10);
+  return text;
 }
 
 function toNumber_(value) {

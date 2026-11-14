@@ -68,6 +68,30 @@ export function parseKey(key) {
   return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
+/**
+ * Sheets turns `2026-11-11` into a Date; JSON gives `2026-11-10T15:00:00.000Z`
+ * in a UTC+9 spreadsheet. Convert it back to the *spreadsheet's* calendar day,
+ * not the viewer's, so every party member sees the same week.
+ */
+export function dateKeyInZone(value, timeZone) {
+  const text = String(value ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(text)) return text;
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text.slice(0, 10);
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timeZone || undefined,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const part = (type) => parts.find((p) => p.type === type)?.value;
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  } catch {
+    return text.slice(0, 10);
+  }
+}
+
 /** The Wednesday (or configured reset day) that owns the given moment. */
 export function weekKeyFromDate(date = new Date(), resetDay = 3, resetHour = 6) {
   const d = new Date(date.getTime());

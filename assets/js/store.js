@@ -47,6 +47,7 @@ export const state = {
   ready: false,
   readOnly: false,
   keyEnforced: false,
+  sheetTimeZone: null,
   settings,
   sync: { state: 'idle', revision: 0, at: null, error: '', pending: 0 },
 };
@@ -113,7 +114,7 @@ async function loadRemote({ force = false } = {}) {
       state.sync = { ...state.sync, state: 'ok', at: isoNow(), error: '' };
       return false;
     }
-    state.data = model.normalizeData(res.data || res);
+    state.data = model.normalizeData(res.data || res, { timeZone: state.sheetTimeZone || undefined });
     state.sync = {
       state: 'ok',
       revision: res.revision ?? 0,
@@ -134,6 +135,7 @@ export async function init() {
       remoteAdapter = createRemote(settings.endpoint);
       state.status = 'remote';
       const health = await remoteAdapter.health();
+      state.sheetTimeZone = health.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
       state.readOnly = Boolean(health.pinRequired) && !settings.pin;
       state.keyEnforced = Boolean(health.readKeyRequired);
       if (!health.readKeyRequired && settings.readKey) {
@@ -498,6 +500,7 @@ export async function connect(endpoint, pin, readKey = '') {
   if (health && health.ok === false) {
     throw new ApiError(health.message || 'The endpoint is not healthy.', health.code || 'REMOTE');
   }
+  state.sheetTimeZone = health.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // Probe before committing: a wrong read key must not replace a working setup.
   const snapshot = await candidate.load(null, String(readKey || '').trim());
@@ -515,7 +518,7 @@ export async function connect(endpoint, pin, readKey = '') {
     notify('info', 'Read key not enforced', 'Run setReadKey("<the key>") in Apps Script and deploy a new version.');
   }
   queue = [];
-  state.data = model.normalizeData(snapshot.data || snapshot);
+  state.data = model.normalizeData(snapshot.data || snapshot, { timeZone: state.sheetTimeZone || undefined });
   state.sync = {
     state: 'ok',
     revision: snapshot.revision ?? 0,
@@ -554,6 +557,7 @@ export function disconnect() {
   state.status = 'demo';
   state.readOnly = false;
   state.keyEnforced = false;
+  state.sheetTimeZone = null;
   state.sync = { ...state.sync, state: 'ok', error: '' };
   emit();
 }
@@ -585,7 +589,7 @@ export async function resetDemo() {
 
 export function importData(raw) {
   const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  const data = model.normalizeData(parsed.data || parsed);
+  const data = model.normalizeData(parsed.data || parsed, { timeZone: state.sheetTimeZone || undefined });
   state.data = data;
   if (state.status === 'remote' && remoteAdapter) {
     remoteAdapter

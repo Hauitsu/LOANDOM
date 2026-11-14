@@ -2,7 +2,7 @@
    Nothing in here touches the DOM or the network, which keeps it easy to reason
    about and to unit-test later. */
 
-import { num, byOrder, uid, isoNow, weekKeyFromDate, addWeeks } from './util.js';
+import { num, byOrder, uid, isoNow, weekKeyFromDate, addWeeks, dateKeyInZone } from './util.js';
 
 export const LIMITS = {
   goldCharacters: 6, // roster-wide gold earners per week
@@ -69,10 +69,10 @@ export function normalizeCharacter(raw, index = 0) {
   };
 }
 
-export function normalizeRun(raw, index = 0) {
+export function normalizeRun(raw, index = 0, options = {}) {
   return {
     id: text(raw.id) || `r_${index}_${Date.now().toString(36)}`,
-    week: text(raw.week),
+    week: dateKeyInZone(text(raw.week), options.timeZone),
     raidId: text(raw.raidId),
     index: num(raw.index, index + 1),
     cleared: truthy(raw.cleared),
@@ -93,10 +93,10 @@ export function normalizeAssignment(raw, index = 0) {
   };
 }
 
-export function normalizeLedger(raw, index = 0) {
+export function normalizeLedger(raw, index = 0, options = {}) {
   return {
     id: text(raw.id) || `l_${index}_${Date.now().toString(36)}`,
-    week: text(raw.week),
+    week: dateKeyInZone(text(raw.week), options.timeZone),
     kind: text(raw.kind).toLowerCase() === 'bound' ? 'bound' : 'tradable',
     amount: num(raw.amount, 0),
     source: text(raw.source) || 'Manual',
@@ -108,15 +108,15 @@ export function normalizeLedger(raw, index = 0) {
 }
 
 /** Coerce anything (sheet rows, JSON, seed) into the canonical shape. */
-export function normalizeData(raw = {}) {
+export function normalizeData(raw = {}, options = {}) {
   return {
     config: raw.config && typeof raw.config === 'object' ? raw.config : {},
     raids: (raw.raids || []).map(normalizeRaid),
     players: (raw.players || []).map(normalizePlayer),
     characters: (raw.characters || []).map(normalizeCharacter),
-    runs: (raw.runs || []).map(normalizeRun),
+    runs: (raw.runs || []).map((run, index) => normalizeRun(run, index, options)),
     assignments: (raw.assignments || []).map(normalizeAssignment),
-    ledger: (raw.ledger || []).map(normalizeLedger),
+    ledger: (raw.ledger || []).map((entry, index) => normalizeLedger(entry, index, options)),
   };
 }
 
