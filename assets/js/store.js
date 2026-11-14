@@ -167,16 +167,15 @@ export async function refreshPortraits({ silent = true } = {}) {
   if (state.status === 'remote' && remoteAdapter) {
     try {
       const items = await remoteAdapter.portraits(settings.readKey);
-      const remoteKeys = new Set(items.map((item) => item.key));
-      const merged = items.map((item) => ({
-        key: item.key,
-        url: `data:${item.mime || 'image/webp'};base64,${item.data}`,
-      }));
+      const remote = items
+        .filter((item) => item && item.key && item.driveId)
+        .map((item) => ({ key: item.key, driveId: item.driveId }));
+      const remoteKeys = new Set(remote.map((item) => item.key));
 
-      // Keep local-only portraits visible, and migrate them once the script supports it.
       const locals = portraits.localEntries();
+      const merged = remote.slice();
       locals.forEach(([key, url]) => {
-        if (!remoteKeys.has(key)) merged.push({ key, url });
+        if (!remoteKeys.has(key)) merged.push({ key, dataUrl: url });
       });
       portraits.replacePortraits(merged);
       emit();
@@ -194,7 +193,7 @@ export async function refreshPortraits({ silent = true } = {}) {
             const res = await remoteAdapter.send(settings.pin, ops);
             if (res.applied) {
               portraits.clearLocalKeys(ops.map((op) => op.portrait.key));
-              notify('ok', `Synced ${ops.length} portrait${ops.length === 1 ? '' : 's'} to the sheet`);
+              notify('ok', `Uploaded ${ops.length} portrait${ops.length === 1 ? '' : 's'} to Drive`);
             }
           } catch {
             /* keep them local */
@@ -228,7 +227,8 @@ export async function savePortrait(character, dataUrl) {
         { type: 'portrait.upsert', portrait: { key, mime: match[1], data: match[2] } },
       ]);
       if (!res || !res.applied) throw new ApiError('Portrait storage is not deployed yet.', 'OLD_BACKEND');
-      notify('ok', 'Portrait saved to the sheet');
+      notify('ok', 'Portrait uploaded to Drive');
+      refreshPortraits();
       return;
     } catch (error) {
       portraits.saveLocalPortrait(key, dataUrl);

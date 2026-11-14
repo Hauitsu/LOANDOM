@@ -37,13 +37,7 @@ var TABS = {
   Runs: ['id', 'week', 'raidId', 'index', 'cleared', 'claims', 'note', 'updatedAt'],
   Assignments: ['id', 'runId', 'playerId', 'characterId', 'name', 'updatedAt'],
   Ledger: ['id', 'week', 'kind', 'amount', 'source', 'note', 'playerId', 'characterId', 'updatedAt'],
-  Portraits: [
-    'key', 'mime', 'chunks',
-    'data', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8',
-    'data9', 'data10', 'data11', 'data12', 'data13', 'data14', 'data15', 'data16',
-    'data17', 'data18', 'data19', 'data20', 'data21', 'data22', 'data23', 'data24',
-    'updatedAt',
-  ],
+  Portraits: ['key', 'mime', 'driveId', 'updatedAt'],
 };
 
 var NUMERIC = {
@@ -52,7 +46,6 @@ var NUMERIC = {
   Characters: ['ilvl'],
   Runs: ['index', 'claims'],
   Ledger: ['amount'],
-  Portraits: ['chunks'],
 };
 
 var BOOLEAN = {
@@ -322,34 +315,22 @@ function bumpRevision_() {
 
 /* ================================================================ snapshot */
 
-var PORTRAIT_CHUNK_CHARS = 40000;
-var PORTRAIT_MAX_PARTS = 24;
-
-function portraitParts_(row) {
-  var parts = [];
-  for (var i = 0; i < PORTRAIT_MAX_PARTS; i++) {
-    var column = i === 0 ? 'data' : 'data' + (i + 1);
-    var value = row.obj[column];
-    if (value) parts.push(String(value));
-  }
-  return parts;
-}
+var PORTRAIT_MAX_CHARS = 12000000; // ~9 MB of image bytes, before base64
 
 function portraits_() {
   var db = openDb_();
   var rows = db.Portraits ? db.Portraits.rows : [];
   var items = rows
     .map(function (row) {
-      var data = portraitParts_(row).join('');
       return {
         key: String(row.obj.key || ''),
-        mime: String(row.obj.mime || 'image/webp'),
-        data: data,
+        mime: String(row.obj.mime || ''),
+        driveId: String(row.obj.driveId || ''),
         updatedAt: String(row.obj.updatedAt || ''),
       };
     })
     .filter(function (item) {
-      return item.key && item.data;
+      return item.key && item.driveId;
     });
   return { ok: true, items: items };
 }
@@ -826,27 +807,52 @@ function deleteRaid_(db, id) {
   deleteRow_(db, 'Raids', id);
 }
 
+function extensionForMime_(mime) {
+  var map = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+    'image/svg+xml': '.svg',
+    'image/avif': '.avif',
+  };
+  return map[mime] || '.img';
+}
+
 function upsertPortrait_(db, portrait) {
   if (!portrait || !portrait.key) return;
   var data = String(portrait.data || '');
   if (!data) return;
-  if (data.length > PORTRAIT_CHUNK_CHARS * PORTRAIT_MAX_PARTS) {
-    throw new Error('Portrait is too large. Keep it under ~650 KB; no compression is applied.');
+  if (data.length > PORTRAIT_MAX_CHARS) {
+    throw new Error('Portrait is too large (max ~9 MB).');
   }
   var mime = String(portrait.mime || 'image/webp');
   if (mime.indexOf('image/') !== 0) mime = 'image/webp';
 
-  var record = { key: String(portrait.key), mime: mime, updatedAt: now_() };
-  var parts = 0;
-  for (var i = 0; i < PORTRAIT_MAX_PARTS; i++) {
-    var column = i === 0 ? 'data' : 'data' + (i + 1);
-    var chunk = data.slice(i * PORTRAIT_CHUNK_CHARS, (i + 1) * PORTRAIT_CHUNK_CHARS);
-    record[column] = chunk;
-    if (chunk) parts = i + 1;
+  var blob = Utilities.newBlob(
+    Utilities.base64Decode(data),
+    mime,
+    'loandom-' + portrait.key + extensionForMime_(mime),
+  );
+  var file = DriveApp.createFile(blob);
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (sharingError) {
+    // The owner can still use it; a private file will not load in the browser.
   }
-  record.chunks = parts;
 
-  if (db.Portraits.byId[String(record.key)]) {
+  var existing = db.Portraits.byId[String(portrait.key)];
+  var oldId = existing ? String(existing.obj.driveId || '') : '';
+  if (oldId) {
+    try {
+      DriveApp.getFileById(oldId).setTrashed(true);
+    } catch (trashError) {
+      /* already gone */
+    }
+  }
+
+  var record = { key: String(portrait.key), mime: mime, driveId: file.getId(), updatedAt: now_() };
+  if (existing) {
     updateRow_(db, 'Portraits', record.key, record);
   } else {
     append_(db, 'Portraits', record);
@@ -855,7 +861,17 @@ function upsertPortrait_(db, portrait) {
 
 function deletePortrait_(db, key) {
   if (!key) return;
-  if (db.Portraits.byId[String(key)]) deleteRow_(db, 'Portraits', key);
+  var row = db.Portraits.byId[String(key)];
+  if (!row) return;
+  var driveId = String(row.obj.driveId || '');
+  if (driveId) {
+    try {
+      DriveApp.getFileById(driveId).setTrashed(true);
+    } catch (trashError) {
+      /* already gone */
+    }
+  }
+  deleteRow_(db, 'Portraits', key);
 }
 
 function upsertPlayer_(db, player, created) {  if (!player || !player.id) return;

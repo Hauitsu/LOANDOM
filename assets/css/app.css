@@ -673,7 +673,7 @@ tr:hover .row-actions { opacity: 1; }
   border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
   animation: pop 0.16s ease-out;
 }
-.modal-wide { width: min(760px, 100%); }
+.modal-wide { width: min(900px, 100%); }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px 10px; }
 .modal-head h2 { font-size: 17px; }
 .modal-head p { font-size: 11.5px; color: var(--muted); margin-top: 2px; }

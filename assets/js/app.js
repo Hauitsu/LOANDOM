@@ -404,7 +404,7 @@ function openCellPicker(anchor, runId, playerId) {
       name: c.name,
       ilvl: c.ilvl,
       className: c.className,
-      portrait: portraitFor(c),
+      portrait: portraitFor(c, 240),
     }));
 
   openCharacterPopover(anchor, {

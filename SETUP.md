@@ -48,7 +48,7 @@ No server, no domain, no billing. You need a Google account and five minutes.
 
 `setup()` creates the eight tabs, headers, and the default catalog (four raids, four owners). If you had `Sheet1`, it removes it when empty.
 
-> **Portraits** hold pasted character images as base64 — stored **as-is, without re-encoding**, and split across up to 24 cells (`data`…`data24`) because a sheet cell caps at 50k characters. Budget roughly 650 KB per portrait. The UI renders each one at **70% of its natural size**, preserving the aspect ratio. If you already ran `setup()` before this tab existed, either run it again or simply redeploy and open the app — missing tabs are created on demand. Portraits stay local to one browser until the updated `Code.gs` is deployed.
+> **Portraits** are uploaded to **Google Drive** by the script (original bytes, no re-encoding) and the `Portraits` tab stores only the file ID. Files are shared “anyone with the link can view” so the browser can load them. The UI renders each at **70% of its natural size**. On the next run/deploy Apps Script will ask you to authorize Drive access (`drive` scope) — approve it once. If you already have an old `Portraits` tab from earlier testing, delete it so it is recreated with the `driveId` column. Portraits stay local to one browser until the updated `Code.gs` is deployed.
 
 You should see a toast: *“LOANDOM sheet is ready.”*
 
@@ -212,6 +212,7 @@ Apps Script quotas (free): 20,000 URL fetches/day, 90 min/day runtime. A persona
 - **Reads are open by default** to anyone who has the deployment URL. Set a read key (§8) to require it; then the URL alone returns `BAD_KEY`.
 - The PIN gates writes; the read key gates reads. They are independent, so a member link can be read-only.
 - Invite links contain the read key (and optionally the PIN). Treat them as passwords and share them privately.
+- **Portrait images live in your Google Drive**, shared “anyone with the link can view”. Anyone with a file link can view that image, but not the rest of your Drive. Deleting a portrait in the app trashes its Drive file.
 - Keys are stored in plain text in each browser's `localStorage` — that is the trade-off for not having accounts. Rotate them if a device is lost.
 - The script can only touch the spreadsheet it is attached to.
 - If you stop using it, archive the deployment (Deploy → Manage deployments → Archive) and the data stays in the sheet.

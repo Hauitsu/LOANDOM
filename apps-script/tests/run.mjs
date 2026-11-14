@@ -95,6 +95,9 @@ const properties = {
   deleteProperty: (k) => props.delete(k),
 };
 
+const driveFiles = new Map();
+let driveSeq = 0;
+
 const context = {
   console,
   JSON,
@@ -123,7 +126,34 @@ const context = {
       setMimeType() { return this; },
     }),
   },
-  Utilities: { getUuid: () => crypto.randomUUID() },
+  Utilities: {
+    getUuid: () => crypto.randomUUID(),
+    base64Decode: (value) => Buffer.from(String(value || ''), 'base64'),
+    newBlob: (bytes, mimeType, name) => ({ bytes, mimeType, name }),
+  },
+  DriveApp: {
+    Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' },
+    Permission: { VIEW: 'VIEW' },
+    createFile(blob) {
+      driveSeq += 1;
+      const id = `drv_${driveSeq}`;
+      driveFiles.set(id, { blob, trashed: false, sharing: null });
+      return {
+        getId: () => id,
+        setSharing(access, permission) {
+          driveFiles.get(id).sharing = [access, permission];
+        },
+      };
+    },
+    getFileById(id) {
+      if (!driveFiles.has(id)) throw new Error(`missing drive file ${id}`);
+      return {
+        setTrashed(value) {
+          driveFiles.get(id).trashed = value;
+        },
+      };
+    },
+  },
   Logger: { log: (...args) => console.log(...args) },
   BAD_PIN_TEST: true,
 };
@@ -266,17 +296,19 @@ let pres = post({
 });
 check('portrait upsert accepted', pres.ok === true && pres.applied === 1, JSON.stringify(pres));
 let pitems = post({ op: 'portraits' });
-check('portrait list returns it', pitems.ok === true && pitems.items.length === 1 && pitems.items[0].key === 'c1');
+check(
+  'portrait list returns a Drive id',
+  pitems.ok === true && pitems.items.length === 1 && pitems.items[0].key === 'c1' && pitems.items[0].driveId.indexOf('drv_') === 0,
+);
 const bigPortrait = 'B'.repeat(90000);
 pres = post({
   pin: '1234',
   op: 'mutate',
   ops: [{ type: 'portrait.upsert', portrait: { key: 'c2', mime: 'image/webp', data: bigPortrait } }],
 });
-check('large portrait accepted', pres.ok === true && pres.applied === 1, JSON.stringify(pres));
+check('large portrait accepted (Drive, no compression)', pres.ok === true && pres.applied === 1, JSON.stringify(pres));
 pitems = post({ op: 'portraits' });
-const chunked = pitems.items.find((item) => item.key === 'c2');
-check('chunked portrait round-trips', Boolean(chunked) && chunked.data.length === 90000 && chunked.data[0] === 'B');
+check('second portrait stored', pitems.items.length === 2 && pitems.items.some((item) => item.key === 'c2'));
 post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.delete', key: 'c2' }] });
 let snap3 = get({ op: 'snapshot' });
 check('snapshot excludes portraits', snap3.data.portraits === undefined);

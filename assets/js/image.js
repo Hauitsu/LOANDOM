@@ -1,7 +1,7 @@
 /* Portraits are stored as-is (no re-encoding, no quality loss).
    The UI renders them at 70% of their natural dimensions, preserving ratio. */
 
-const MAX_BYTES = 650 * 1024; // 650 KB -> ~870k base64 chars, inside the 24-cell budget
+const MAX_BYTES = 9 * 1024 * 1024; // originals go to Google Drive, not a sheet cell
 
 function readAsDataUrl(blob) {
   return new Promise((resolve, reject) => {
@@ -26,12 +26,9 @@ export async function readPortraitFile(blob) {
     throw new Error('That is not an image.');
   }
   if (blob.size > MAX_BYTES) {
-    throw new Error('That image is larger than 650 KB. Use a smaller copy — no compression is applied.');
+    throw new Error('That image is larger than 9 MB');
   }
   const dataUrl = await readAsDataUrl(blob);
-  if (dataUrl.length > 950000) {
-    throw new Error('That image is too large for the sheet. Use a smaller copy.');
-  }
   const { width, height } = await measure(dataUrl);
   return { dataUrl, width, height, bytes: blob.size };
 }

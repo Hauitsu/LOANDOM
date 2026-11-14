@@ -1,25 +1,32 @@
 /* Character portraits.
  *
- * Stored in the sheet's Portraits tab (base64, 128px) when connected, or in
- * localStorage while in demo mode / before the script is redeployed.
+ * Stored in the sheet's Portraits tab as Google Drive file IDs when connected
+ * (originals, no re-encoding), or in localStorage while in demo mode.
  * Nothing is fetched from third-party sites.
  */
 
 import { slug } from './util.js';
 
 const LOCAL_KEY = 'loandom.portraits.v1';
+const DRIVE_SIZE = 2400;
 
-let cache = new Map(); // key -> data URL
+let cache = new Map(); // key -> { driveId } | { dataUrl }
 let source = 'none'; // 'remote' | 'local' | 'none'
 
-export function portraitFor(character) {
+const driveUrl = (id, size) =>
+  `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${size || DRIVE_SIZE}`;
+
+export function portraitFor(character, size) {
   if (!character) return '';
-  return cache.get(String(character.id)) || cache.get(slug(character.name)) || '';
+  const entry = cache.get(String(character.id)) || cache.get(slug(character.name));
+  if (!entry) return '';
+  if (entry.driveId) return driveUrl(entry.driveId, size);
+  return entry.dataUrl || '';
 }
 
 export function setPortrait(key, dataUrl) {
   if (!key || !dataUrl) return;
-  cache.set(String(key), dataUrl);
+  cache.set(String(key), { dataUrl });
 }
 
 export function removePortraitKey(key) {
@@ -29,7 +36,9 @@ export function removePortraitKey(key) {
 export function replacePortraits(items) {
   cache = new Map();
   (items || []).forEach((item) => {
-    if (item && item.key && item.url) cache.set(String(item.key), item.url);
+    if (!item || !item.key) return;
+    if (item.driveId) cache.set(String(item.key), { driveId: item.driveId });
+    else if (item.dataUrl) cache.set(String(item.key), { dataUrl: item.dataUrl });
   });
   source = 'remote';
 }
@@ -41,7 +50,7 @@ export function loadLocalPortraits() {
     const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
     Object.keys(parsed).forEach((key) => {
       if (typeof parsed[key] === 'string' && parsed[key].startsWith('data:image/')) {
-        cache.set(key, parsed[key]);
+        cache.set(key, { dataUrl: parsed[key] });
       }
     });
   } catch {
@@ -51,22 +60,22 @@ export function loadLocalPortraits() {
 
 export function saveLocalPortrait(key, dataUrl) {
   const map = {};
-  cache.forEach((value, k) => {
-    map[k] = value;
+  cache.forEach((entry, k) => {
+    if (entry.dataUrl) map[k] = entry.dataUrl;
   });
   map[String(key)] = dataUrl;
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(map));
     source = 'local';
-  } catch (error) {
+  } catch {
     throw new Error('Browser storage is full. Remove some portraits or connect the sheet.');
   }
 }
 
 export function deleteLocalPortrait(key) {
   const map = {};
-  cache.forEach((value, k) => {
-    if (k !== String(key)) map[k] = value;
+  cache.forEach((entry, k) => {
+    if (entry.dataUrl && k !== String(key)) map[k] = entry.dataUrl;
   });
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(map));
@@ -78,7 +87,7 @@ export function deleteLocalPortrait(key) {
 export const portraitSource = () => source;
 export const portraitCount = () => cache.size;
 
-/** Local-only portraits (used to migrate to the sheet after a redeploy). */
+/** Local-only portraits (used to migrate to Drive after a redeploy). */
 export function localEntries() {
   try {
     const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
