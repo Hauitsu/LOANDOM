@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LOANDOM — Lost Ark raid gold tracker</title>
+    <meta
+      name="description"
+      content="Weekly Lost Ark raid gold tracker and character raid planner. Static site on GitHub Pages, database in a Google Sheet, no server required."
+    />
+    <meta name="theme-color" content="#0a0c11" />
+    <meta name="color-scheme" content="dark" />
+    <meta property="og:title" content="LOANDOM — Lost Ark raid gold tracker" />
+    <meta
+      property="og:description"
+      content="Track raid gold, bound vs unbound, and who runs what this week. Google Sheet as the database, GitHub Pages as the host."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon.ico" sizes="32x32" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="assets/css/app.css" />
+  </head>
+  <body data-route="board">
+    <a class="skip-link" href="#view">Skip to content</a>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#/board" aria-label="LOANDOM — raid board">
+          <span class="brand-mark">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14.5 17.5 3 6V3h3l11.5 11.5" />
+              <path d="m13 19 6-6" />
+              <path d="m16 16 4 4" />
+              <path d="m19 21 2-2" />
+            </svg>
+          </span>
+          <span class="brand-text">
+            <span class="brand-name">LOAN<em>DOM</em></span>
+            <span class="brand-sub">raid gold tracker</span>
+          </span>
+        </a>
+
+        <nav class="nav" id="nav" aria-label="Sections"></nav>
+
+        <div class="topbar-right">
+          <div class="weeknav" id="weeknav"></div>
+          <div id="sync-pill"></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="totals" id="totals" aria-live="polite"></div>
+
+    <main class="view" id="view">
+      <div class="boot"><span class="boot-spinner"></span>Loading your week…</div>
+    </main>
+
+    <footer class="foot">
+      <span>
+        Static site · GitHub Pages
+        <span class="dot">·</span>
+        database
+        <span class="dot">·</span>
+        Google Sheet
+        <span class="dot">·</span>
+        backend
+        <span class="dot">·</span>
+        Apps Script
+      </span>
+      <span>
+        <a href="SETUP.md">Setup guide</a>
+        <span class="dot">·</span>
+        <a href="README.md">Readme</a>
+        <span class="dot">·</span>
+        unofficial fan tool
+      </span>
+    </footer>
+
+    <div id="overlay"></div>
+    <div id="toasts"></div>
+
+    <noscript>
+      <div style="max-width: 560px; margin: 80px auto; padding: 24px; border: 1px solid #232c3d; border-radius: 14px; font-family: system-ui; color: #e9edf6; background: #131822">
+        <h1 style="font-size: 18px; margin-bottom: 8px">JavaScript is required</h1>
+        <p style="color: #8590a6; font-size: 13px">
+          LOANDOM is a static app that reads and writes a Google Sheet. Enable JavaScript and reload the page.
+        </p>
+      </div>
+    </noscript>
+
+    <script type="module" src="assets/js/app.js"></script>
+  </body>
+</html>
