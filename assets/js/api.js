@@ -126,6 +126,30 @@ export function createRemote(endpoint) {
       const response = await fetch(target.toString(), { redirect: 'follow', cache: 'no-store' });
       return parseJson(response);
     },
+
+    /** Portrait rows (base64) for this sheet. */
+    async portraits(readKey) {
+      const response = await fetch(url, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ op: 'portraits', key: readKey || '' }),
+      });
+      if (!response.ok) {
+        throw new ApiError(`Sheet endpoint answered HTTP ${response.status}.`, 'HTTP', String(response.status));
+      }
+      const json = await parseJson(response);
+      if (json.ok === false) {
+        if (json.code === 'UNKNOWN_OP') {
+          throw new ApiError('This deployment does not store portraits yet.', 'OLD_BACKEND');
+        }
+        if (json.code === 'BAD_KEY') {
+          throw new ApiError('Wrong read key.', 'BAD_KEY');
+        }
+        throw new ApiError(json.message || 'The sheet refused the request.', json.code || 'REMOTE');
+      }
+      return json.items || [];
+    },
   };
 }
 

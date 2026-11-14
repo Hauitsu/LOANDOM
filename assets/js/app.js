@@ -36,6 +36,8 @@ import {
   saveSettings,
   consumeInviteHash,
   buildInvite,
+  savePortrait,
+  removePortrait,
   currentStats,
 } from './store.js';
 import { $, esc, attr, fmt, num, weekLabel, weekYear, ago, download, colorFor } from './util.js';
@@ -53,6 +55,9 @@ import { renderRoster } from './views/roster.js';
 import { renderSummary } from './views/summary.js';
 import { renderLedger } from './views/ledger.js';
 import { renderSettings } from './views/settings.js';
+import { portraitFor } from './portraits.js';
+import { classColor, CLASSES } from './classes.js';
+import { toSquareDataUrl } from './image.js';
 
 const ROUTES = {
   board: { label: 'Board', icon: 'sword', render: renderBoard },
@@ -203,14 +208,33 @@ function openCharacterModal(charId) {
   const raidOptions = state.data.raids
     .filter((r) => r.active !== false)
     .sort((a, b) => num(a.ilvl) - num(b.ilvl));
+  const pic = portraitFor(character);
+  const tint = classColor(character.className);
 
   openModal({
     title: character.name,
     subtitle: `${player?.name || 'Unknown owner'} · ${used.length} assigned run${used.length === 1 ? '' : 's'} this week`,
     body: `
+      <div class="portrait-edit">
+        <div class="portrait-preview" style="--cc:${attr(tint)}" data-portrait-preview>
+          ${pic ? `<img src="${attr(pic)}" alt="" />` : `<span>${esc(character.name.slice(0, 2))}</span>`}
+        </div>
+        <div class="portrait-side">
+          <div class="portrait-actions">
+            <button type="button" class="btn small" data-portrait-paste>${ico('clipboard', 14)} Paste image</button>
+            <button type="button" class="btn small ghost" data-portrait-file>${ico('image', 14)} Choose file</button>
+            <button type="button" class="btn small ghost danger-text" data-portrait-remove>Remove</button>
+          </div>
+          <input type="file" accept="image/*" data-portrait-input hidden />
+          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Saved at 128px; synced via the Portraits tab.</p>
+        </div>
+      </div>
       <form class="form-grid" data-form="char-edit" data-id="${attr(character.id)}">
         <label class="field"><span>Name</span><input name="name" value="${attr(character.name)}" maxlength="24" required /></label>
-        <label class="field"><span>Class</span><input name="className" value="${attr(character.className)}" placeholder="e.g. Gunslinger" maxlength="24" /></label>
+        <label class="field"><span>Class</span><input name="className" list="class-options" value="${attr(character.className)}" placeholder="e.g. Gunslinger" maxlength="24" /></label>
+        <datalist id="class-options">
+          ${CLASSES.map((entry) => `<option value="${attr(entry.name)}"></option>`).join('')}
+        </datalist>
         <label class="field"><span>Item level</span><input name="ilvl" type="number" value="${attr(character.ilvl || '')}" placeholder="1750" min="1" max="2000" /></label>
         <label class="field">
           <span>Owner</span>
@@ -252,6 +276,61 @@ function openCharacterModal(charId) {
       <button class="btn ghost" data-modal-close>Cancel</button>
       <button class="btn primary" data-modal-save>${ico('check', 15)} Save</button>`,
     onMount(modal) {
+      const preview = modal.querySelector('[data-portrait-preview]');
+      const fileInput = modal.querySelector('[data-portrait-input]');
+      const paint = (url) => {
+        preview.innerHTML = url
+          ? `<img src="${attr(url)}" alt="" />`
+          : `<span>${esc(character.name.slice(0, 2))}</span>`;
+      };
+      const applyBlob = async (blob) => {
+        try {
+          const dataUrl = await toSquareDataUrl(blob);
+          await savePortrait(character, dataUrl);
+          paint(dataUrl);
+        } catch (error) {
+          toast('error', 'Could not use that image', error.message);
+        }
+      };
+
+      modal.querySelector('[data-portrait-paste]').addEventListener('click', async () => {
+        try {
+          if (!navigator.clipboard?.read) throw new Error('Clipboard read is not available in this browser.');
+          const items = await navigator.clipboard.read();
+          for (const item of items) {
+            const type = item.types.find((t) => t.startsWith('image/'));
+            if (type) {
+              await applyBlob(await item.getType(type));
+              return;
+            }
+          }
+          toast('info', 'No image in the clipboard', 'Copy an image first, or press Ctrl+V.');
+        } catch (error) {
+          toast('info', 'Use Ctrl+V instead', error.message);
+        }
+      });
+
+      modal.querySelector('[data-portrait-file]').addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files?.[0];
+        if (file) await applyBlob(file);
+        fileInput.value = '';
+      });
+
+      modal.addEventListener('paste', async (event) => {
+        const items = Array.from(event.clipboardData?.items || []);
+        const image = items.find((item) => item.type.startsWith('image/'));
+        if (!image) return;
+        event.preventDefault();
+        await applyBlob(image.getAsFile());
+      });
+
+      modal.querySelector('[data-portrait-remove]').addEventListener('click', async () => {
+        await removePortrait(character);
+        paint('');
+        toast('info', 'Portrait removed');
+      });
+
       modal.querySelector('[data-modal-save]').addEventListener('click', () => {
         const form = modal.querySelector('form');
         if (!form.reportValidity()) return;

@@ -37,6 +37,7 @@ var TABS = {
   Runs: ['id', 'week', 'raidId', 'index', 'cleared', 'claims', 'note', 'updatedAt'],
   Assignments: ['id', 'runId', 'playerId', 'characterId', 'name', 'updatedAt'],
   Ledger: ['id', 'week', 'kind', 'amount', 'source', 'note', 'playerId', 'characterId', 'updatedAt'],
+  Portraits: ['key', 'mime', 'data', 'updatedAt'],
 };
 
 var NUMERIC = {
@@ -188,6 +189,11 @@ function doGet(e) {
   var params = (e && e.parameter) || {};
   try {
     if (params.op === 'health' || params.op === 'ping') return json_(health_());
+    if (params.op === 'portraits') {
+      var portraitGuard = checkReadAccess_(params.key);
+      if (!portraitGuard.ok) return json_(portraitGuard);
+      return json_(portraits_());
+    }
     var guard = checkReadAccess_(params.key);
     if (!guard.ok) return json_(guard);
     return json_(snapshot_(params.rev));
@@ -213,6 +219,12 @@ function doPost(e) {
       var readGuard = checkReadAccess_(body.key);
       if (!readGuard.ok) return json_(readGuard);
       return json_(snapshot_(body.rev));
+    }
+
+    if (op === 'portraits') {
+      var portraitGuard = checkReadAccess_(body.key);
+      if (!portraitGuard.ok) return json_(portraitGuard);
+      return json_(portraits_());
     }
 
     if (op !== 'mutate') {
@@ -303,8 +315,26 @@ function bumpRevision_() {
 
 /* ================================================================ snapshot */
 
-function snapshot_(sinceRevision) {
+function portraits_() {
   var db = openDb_();
+  var rows = db.Portraits ? db.Portraits.rows : [];
+  var items = rows
+    .map(function (row) {
+      return {
+        key: String(row.obj.key || ''),
+        mime: String(row.obj.mime || 'image/webp'),
+        data: String(row.obj.data || ''),
+        updatedAt: String(row.obj.updatedAt || ''),
+      };
+    })
+    .filter(function (item) {
+      return item.key && item.data;
+    });
+  return { ok: true, items: items };
+}
+
+function snapshot_(sinceRevision) {
+  var db = openDb_({ skipPortraits: true });
   var healed = heal_(db);
   var revision = PropertiesService.getScriptProperties().getProperty('revision') || '0';
 
@@ -314,6 +344,8 @@ function snapshot_(sinceRevision) {
 
   var data = {};
   Object.keys(TABS).forEach(function (name) {
+    // Portraits are large; they are fetched on demand by op=portraits.
+    if (name === 'Portraits') return;
     data[name.toLowerCase()] = db[name] ? db[name].rows.map(function (row) { return row.obj; }) : [];
   });
 
@@ -327,10 +359,12 @@ function snapshot_(sinceRevision) {
   };
 }
 
-function openDb_() {
+function openDb_(options) {
+  var opts = options || {};
   var ss = ss_();
   var db = {};
   Object.keys(TABS).forEach(function (name) {
+    if (opts.skipPortraits && name === 'Portraits') return;
     var sheet = ss.getSheetByName(name);
     if (!sheet) sheet = createTab_(ss, name);
     var lastRow = sheet.getLastRow();
@@ -372,7 +406,8 @@ function createTab_(ss, name) {
 function indexById_(name, rows) {
   var map = {};
   rows.forEach(function (row) {
-    var key = name === 'Config' ? row.obj.key : row.obj.id;
+    var usesKey = name === 'Config' || name === 'Portraits';
+    var key = usesKey ? row.obj.key : row.obj.id;
     if (key !== undefined && key !== null && key !== '') map[String(key)] = row;
   });
   return map;
@@ -427,11 +462,12 @@ function heal_(db) {
     for (var i = 0; i < table.rows.length; i++) {
       var row = table.rows[i];
       var needs = [];
-      if (name !== 'Config' && !row.obj.id) {
+      var usesKey = name === 'Config' || name === 'Portraits';
+      if (!usesKey && !row.obj.id) {
         row.obj.id = 'auto_' + Utilities.getUuid().slice(0, 8);
         needs.push(['id', row.obj.id]);
       }
-      if (name === 'Config' && !row.obj.key) continue;
+      if (usesKey && !row.obj.key) continue;
       if (TABS[name].indexOf('updatedAt') >= 0 && !row.obj.updatedAt) {
         row.obj.updatedAt = new Date().toISOString();
         needs.push(['updatedAt', row.obj.updatedAt]);
@@ -451,7 +487,10 @@ function heal_(db) {
 /* ================================================================ mutation */
 
 function applyOps_(ops) {
-  var db = openDb_();
+  var needsPortraits = ops.some(function (op) {
+    return String(op && op.type || '').indexOf('portrait.') === 0;
+  });
+  var db = openDb_({ skipPortraits: !needsPortraits });
   var applied = 0;
   var created = [];
 
@@ -496,6 +535,12 @@ function applyOps_(ops) {
         break;
       case 'ledger.delete':
         deleteRow_(db, 'Ledger', op.id);
+        break;
+      case 'portrait.upsert':
+        upsertPortrait_(db, op.portrait);
+        break;
+      case 'portrait.delete':
+        deletePortrait_(db, op.key);
         break;
       case 'replaceAll':
         replaceAll_(db, op.data || {});
@@ -543,7 +588,8 @@ function append_(db, name, obj) {
   var rowNumber = table.sheet.getLastRow();
   var row = { row: rowNumber, obj: coerce_(name, toObject_(headers, values)), raw: values };
   table.rows.push(row);
-  var key = name === 'Config' ? row.obj.key : row.obj.id;
+  var usesKey = name === 'Config' || name === 'Portraits';
+  var key = usesKey ? row.obj.key : row.obj.id;
   if (key) table.byId[String(key)] = row;
   return row;
 }
@@ -585,7 +631,8 @@ function deleteRow_(db, name, id) {
   table.rows.forEach(function (r) { if (r.row > row.row) r.row -= 1; });
   delete table.byId[String(id)];
   table.rows.forEach(function (r) {
-    var key = name === 'Config' ? r.obj.key : r.obj.id;
+    var usesKey = name === 'Config' || name === 'Portraits';
+    var key = usesKey ? r.obj.key : r.obj.id;
     if (key) table.byId[String(key)] = r;
   });
   return true;
@@ -758,8 +805,31 @@ function deleteRaid_(db, id) {
   deleteRow_(db, 'Raids', id);
 }
 
-function upsertPlayer_(db, player, created) {
-  if (!player || !player.id) return;
+var PORTRAIT_MAX_CHARS = 45000;
+
+function upsertPortrait_(db, portrait) {
+  if (!portrait || !portrait.key) return;
+  var data = String(portrait.data || '');
+  if (!data) return;
+  if (data.length > PORTRAIT_MAX_CHARS) {
+    throw new Error('Portrait is too large. Compress it below ~33 KB (the app does this automatically).');
+  }
+  var mime = String(portrait.mime || 'image/webp');
+  if (mime.indexOf('image/') !== 0) mime = 'image/webp';
+  var record = { key: String(portrait.key), mime: mime, data: data, updatedAt: now_() };
+  if (db.Portraits.byId[String(record.key)]) {
+    updateRow_(db, 'Portraits', record.key, record);
+  } else {
+    append_(db, 'Portraits', record);
+  }
+}
+
+function deletePortrait_(db, key) {
+  if (!key) return;
+  if (db.Portraits.byId[String(key)]) deleteRow_(db, 'Portraits', key);
+}
+
+function upsertPlayer_(db, player, created) {  if (!player || !player.id) return;
   upsertRow_(db, 'Players', {
     id: player.id,
     name: player.name || 'Player',

@@ -158,7 +158,7 @@ console.log('setup');
 call('setup');
 let health = get({ op: 'health' });
 check('health ok', health.ok === true);
-check('all tabs exist', health.tabs.length === 7, JSON.stringify(health.tabs));
+check('all tabs exist', health.tabs.length === 8, JSON.stringify(health.tabs));
 
 let snap = get({ op: 'snapshot' });
 check('default raids seeded', snap.data.raids.length === 4, snap.data.raids.length);
@@ -257,6 +257,27 @@ const postSnap = post({ op: 'snapshot', key: 'k'.repeat(32) });
 check('POST snapshot with key allowed', postSnap.ok === true && Array.isArray(postSnap.data.players));
 call('clearReadKey');
 check('clearReadKey reopens reads', get({ op: 'snapshot' }).ok === true);
+
+console.log('character portraits');
+let pres = post({
+  pin: '1234',
+  op: 'mutate',
+  ops: [{ type: 'portrait.upsert', portrait: { key: 'c1', mime: 'image/webp', data: 'AAAA' } }],
+});
+check('portrait upsert accepted', pres.ok === true && pres.applied === 1, JSON.stringify(pres));
+let pitems = post({ op: 'portraits' });
+check('portrait list returns it', pitems.ok === true && pitems.items.length === 1 && pitems.items[0].key === 'c1');
+let snap3 = get({ op: 'snapshot' });
+check('snapshot excludes portraits', snap3.data.portraits === undefined);
+call('setReadKey', 'k'.repeat(32));
+let pguard = post({ op: 'portraits' });
+check('portraits gated by read key', pguard.ok === false && pguard.code === 'BAD_KEY');
+pitems = post({ op: 'portraits', key: 'k'.repeat(32) });
+check('portraits readable with key', pitems.ok === true && pitems.items.length === 1);
+call('clearReadKey');
+let pdel = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.delete', key: 'c1' }] });
+check('portrait delete accepted', pdel.ok === true);
+check('portrait gone', post({ op: 'portraits' }).items.length === 0);
 
 console.log('player.upsert + raid.upsert');
 res = post({ op: 'mutate', pin: '1234', ops: [

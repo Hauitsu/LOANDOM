@@ -8,7 +8,8 @@
 import { createRemote, createLocal, ApiError } from './api.js';
 import { seed } from './seed.js';
 import * as model from './model.js';
-import { weekKeyFromDate, addWeeks, isoNow, uid, num, clamp } from './util.js';
+import { weekKeyFromDate, addWeeks, isoNow, uid, num, clamp, slug } from './util.js';
+import * as portraits from './portraits.js';
 
 const SETTINGS_KEY = 'loandom.settings.v1';
 const LOCAL_KEY = 'loandom.local.v2';
@@ -154,8 +155,83 @@ export async function init() {
   }
   state.ready = true;
   emit();
+  refreshPortraits();
   startPolling();
   wireNetworkEvents();
+}
+
+/* --------------------------------------------------------------- portraits */
+
+export async function refreshPortraits({ silent = true } = {}) {
+  if (state.status === 'remote' && remoteAdapter) {
+    try {
+      const items = await remoteAdapter.portraits(settings.readKey);
+      portraits.replacePortraits(
+        items.map((item) => ({
+          key: item.key,
+          url: `data:${item.mime || 'image/webp'};base64,${item.data}`,
+        })),
+      );
+      emit();
+      return;
+    } catch (error) {
+      if (!silent) notify('error', 'Could not load portraits', error.message);
+      portraits.loadLocalPortraits();
+      emit();
+      return;
+    }
+  }
+  portraits.loadLocalPortraits();
+  emit();
+}
+
+export async function savePortrait(character, dataUrl) {
+  if (!character) return;
+  const key = character.id || slug(character.name);
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i.exec(String(dataUrl || ''));
+  if (!match) throw new ApiError('Unsupported image data.', 'BAD_IMAGE');
+
+  portraits.setPortrait(key, dataUrl);
+  emit();
+
+  if (state.status === 'remote' && remoteAdapter) {
+    try {
+      const res = await remoteAdapter.send(settings.pin, [
+        { type: 'portrait.upsert', portrait: { key, mime: match[1], data: match[2] } },
+      ]);
+      if (!res || !res.applied) throw new ApiError('Portrait storage is not deployed yet.', 'OLD_BACKEND');
+      notify('ok', 'Portrait saved to the sheet');
+      return;
+    } catch (error) {
+      portraits.saveLocalPortrait(key, dataUrl);
+      if (error.code === 'BAD_PIN') {
+        notify('info', 'Portrait saved on this device', 'No write PIN, so it cannot sync to the sheet.');
+      } else if (error.code === 'OLD_BACKEND') {
+        notify('info', 'Portrait saved on this device', 'Redeploy Code.gs to sync portraits to the sheet.');
+      } else {
+        notify('error', 'Portrait upload failed', error.message);
+      }
+      return;
+    }
+  }
+
+  portraits.saveLocalPortrait(key, dataUrl);
+  notify('ok', 'Portrait saved on this device');
+}
+
+export async function removePortrait(character) {
+  if (!character) return;
+  const key = character.id || slug(character.name);
+  portraits.removePortraitKey(key);
+  portraits.deleteLocalPortrait(key);
+  emit();
+  if (state.status === 'remote' && remoteAdapter) {
+    try {
+      await remoteAdapter.send(settings.pin, [{ type: 'portrait.delete', key }]);
+    } catch {
+      /* local removal already applied */
+    }
+  }
 }
 
 /* ------------------------------------------------------------ persistence */
@@ -251,6 +327,7 @@ export async function manualRefresh() {
   try {
     const changed = await loadRemote({ force: true });
     if (changed) emit();
+    refreshPortraits();
     notify('ok', 'Synced with the sheet');
   } catch (error) {
     notify('error', 'Sync failed', error.message);
@@ -543,6 +620,7 @@ export async function connect(endpoint, pin, readKey = '') {
   }
 
   emit();
+  refreshPortraits();
   return health;
 }
 
@@ -560,6 +638,7 @@ export function disconnect() {
   state.sheetTimeZone = null;
   state.sync = { ...state.sync, state: 'ok', error: '' };
   emit();
+  refreshPortraits();
 }
 
 export async function pushToSheet() {

@@ -3,6 +3,8 @@
 import { esc, attr, num, colorFor, textOn } from '../util.js';
 import { ico } from '../icons.js';
 import { progressBar } from '../ui.js';
+import { portraitFor } from '../portraits.js';
+import { classColor } from '../classes.js';
 
 function usageMap(stats) {
   const map = new Map();
@@ -24,6 +26,8 @@ function characterRow(character, player, usage, eligibleRaids) {
   const clearedCount = used.filter((u) => u.cleared).length;
   const overCap = clearedCount > 3;
   const belowLevel = used.filter((u) => character.ilvl && u.raid.ilvl && character.ilvl < u.raid.ilvl);
+  const pic = portraitFor(character);
+  const tint = classColor(character.className);
 
   const chips = used.length
     ? used
@@ -38,13 +42,20 @@ function characterRow(character, player, usage, eligibleRaids) {
   return `
     <tr class="${!character.active ? 'is-inactive' : ''}" data-char="${attr(character.id)}">
       <td class="char-name-cell">
+        <span class="char-pic" style="--cc:${attr(tint)}">
+          ${pic ? `<img src="${attr(pic)}" alt="" loading="lazy" />` : `<span>${esc((character.name || '?').slice(0, 2))}</span>`}
+        </span>
         <button class="char-name" data-act="edit-char" data-char="${attr(character.id)}">
           ${character.goldEarner ? `<span class="crown" title="Gold earner">${ico('crown', 11)}</span>` : ''}
           <span>${esc(character.name)}</span>
         </button>
         ${belowLevel.length ? `<span class="row-flag" title="Below the item level of ${esc(belowLevel.map((u) => u.raid.short).join(', '))}">${ico('warning', 11)}</span>` : ''}
       </td>
-      <td class="muted">${character.className ? esc(character.className) : '<span class="dash">—</span>'}</td>
+      <td class="muted">${
+        character.className
+          ? `<span class="class-dot" style="background:${attr(tint)}"></span>${esc(character.className)}`
+          : '<span class="dash">—</span>'
+      }</td>
       <td class="num">${character.ilvl ? esc(character.ilvl) : '<span class="dash">—</span>'}</td>
       <td class="usage-cell">${chips}${overCap ? `<span class="usage is-over" title="Only 3 content entries pay gold">+${clearedCount - 3} over cap</span>` : ''}</td>
       <td class="row-actions">

@@ -10,7 +10,7 @@ No server, no domain, no billing. You need a Google account and five minutes.
 2. Name it something like `LOANDOM`.
 3. Leave it empty. The script creates the tabs.
 
-> Already have a sheet with your own layout? You can keep it — the app uses its own tabs (`Raids`, `Players`, `Characters`, `Runs`, `Assignments`, `Ledger`, `Config`). Either copy your data into those tabs after step 3, or connect and push the app's data, then edit from there. Your old grid can stay untouched as a reference.
+> Already have a sheet with your own layout? You can keep it — the app uses its own tabs (`Raids`, `Players`, `Characters`, `Runs`, `Assignments`, `Ledger`, `Portraits`, `Config`). Either copy your data into those tabs after step 3, or connect and push the app's data, then edit from there. Your old grid can stay untouched as a reference.
 
 ---
 
@@ -46,7 +46,9 @@ No server, no domain, no billing. You need a Google account and five minutes.
 
 > “Unsafe” is Google's wording for any unpublished personal script. You are the author; nothing is shared with a third party.
 
-`setup()` creates the seven tabs, headers, and the default catalog (four raids, four owners). If you had `Sheet1`, it removes it when empty.
+`setup()` creates the eight tabs, headers, and the default catalog (four raids, four owners). If you had `Sheet1`, it removes it when empty.
+
+> **Portraits** hold pasted character images as base64 (128px, ~3–8 KB each). If you already ran `setup()` before this tab existed, either run it again or simply redeploy and open the app — missing tabs are created on demand. Portraits stay local to one browser until the updated `Code.gs` is deployed.
 
 You should see a toast: *“LOANDOM sheet is ready.”*
 
@@ -131,7 +133,7 @@ Open the `/exec` URL with `?op=health` in a browser:
   "app": "loandom",
   "revision": "3",
   "pinRequired": true,
-  "tabs": ["Config", "Raids", "Players", "Characters", "Runs", "Assignments", "Ledger"]
+  "tabs": ["Config", "Raids", "Players", "Characters", "Runs", "Assignments", "Ledger", "Portraits"]
 }
 ```
 
