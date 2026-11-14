@@ -119,7 +119,8 @@ GitHub Pages serves files only; it cannot receive a form post or hold a secret. 
 - The script runs **inside your Google account**, with full access to the sheet.
 - Deployed as a web app with `access: Anyone`, it answers `GET`/`POST` as JSON — a tiny API with no infrastructure.
 - The site POSTs with `Content-Type: text/plain` so the browser skips the CORS preflight, which Apps Script cannot answer.
-- Writes are guarded by a PIN stored in Script Properties. Reads are public, so anyone with the URL can read the sheet — the same as sharing a sheet link. Put it behind an unguessable URL / keep it non-sensitive.
+- Writes are guarded by a PIN stored in Script Properties. Reads are public, so anyone with the `/exec` URL can read the sheet.
+- **Sheet sharing is not an access control for the API.** The script runs as the owner, so it can read a private sheet. Set the sheet to *Restricted* to stop Drive-level sharing, but treat the deployment URL as the real read secret. See [SETUP.md § Security](SETUP.md#4b-lock-down-the-sheet) for the hardening checklist (long PIN, URL hygiene, rotation).
 - Version history, permissions and backups are Google's problem, not yours.
 
 Cost: 0. Cold start: a second or two on the first request after idle.

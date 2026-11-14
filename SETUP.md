@@ -52,21 +52,37 @@ You should see a toast: *“LOANDOM sheet is ready.”*
 
 ---
 
-## 4. Optional: a PIN for writes
+## 4. Optional (but recommended): a PIN for writes
 
-Reads are public (anyone with the URL can read). Writes require a PIN only if you set one.
+Reads are public (anyone with the `/exec` URL can read). Writes require a PIN only if you set one.
+
+Use a **long random string**, not a 4-digit code — the endpoint is public, so a short PIN is guessable.
+
+Generate one:
+
+```powershell
+-join ((48..57)+(97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
+```
 
 1. In the Apps Script editor, add a temporary helper at the bottom of `Code.gs`:
    ```js
-   function setMyPin() { setPin('4821'); }
+   function setMyPin() { setPin('paste-the-32-char-string-here'); }
    ```
 2. Save, select `setMyPin` in the function dropdown, **Run**.
 3. Delete the helper function and save again.
-4. The same PIN goes in the app's **Settings → Google Sheet → PIN**.
+4. Paste the same string into the app's **Settings → Google Sheet → PIN**.
 
 To remove it: run `clearPin()` the same way.
 
-> Treat the PIN as a lock, not encryption: it stops casual edits from the public URL, nothing more.
+> The PIN gates writes, not reads. Treat the `/exec` URL itself as the secret: don't commit it, don't post it, and re-deploy (new URL) if it leaks.
+
+## 4b. Lock down the sheet
+
+The web app runs **as you**, so it can read a fully private sheet. Sheet sharing controls who can open the spreadsheet directly; it does **not** control the API.
+
+- **Share → General access → Restricted** (only you). Keeps it out of Drive search and link sharing.
+- Do not use "Anyone with the link" — that exposes the raw data independently of the app.
+- The `/exec` URL is the real access token for reads. Keep it out of the repo, README, screenshots and issues.
 
 ---
 
