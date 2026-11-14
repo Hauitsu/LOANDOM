@@ -341,6 +341,34 @@ function randomKey(length = 32) {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
 
+function showSecretModal(title, value, property) {
+  openModal({
+    title,
+    subtitle: 'Paste this into Apps Script → Project Settings → Script Properties',
+    body: `
+      <p class="modal-text">Property <code>${esc(property)}</code> needs exactly this value:</p>
+      <div class="secret-row">
+        <input class="secret-input" readonly value="${attr(value)}" spellcheck="false" />
+        <button class="btn primary small" data-secret-copy>${ico('copy', 14)} Copy</button>
+      </div>
+      <p class="modal-note">
+        Both sides must match character for character. Click <strong>Save script properties</strong>,
+        then Deploy → Manage deployments → pencil → <strong>Version: New version</strong> → Deploy.
+      </p>`,
+    onMount(modal) {
+      const input = modal.querySelector('.secret-input');
+      input.focus();
+      input.select();
+      const copy = modal.querySelector('[data-secret-copy]');
+      copy.addEventListener('click', async () => {
+        const ok = await copyText(value);
+        input.select();
+        toast(ok ? 'ok' : 'info', ok ? 'Copied' : 'Select and press Ctrl+C', ok ? `${property} is on your clipboard` : 'The value is selected.');
+      });
+    },
+  });
+}
+
 const WRITE_ACTIONS = new Set([
   'toggle',
   'cell',
@@ -552,24 +580,27 @@ document.addEventListener('click', async (event) => {
       const key = randomKey(32);
       const input = document.querySelector('form[data-form="connect"] input[name="readKey"]');
       if (input) input.value = key;
-      const ok = await copyText(key);
-      toast(
-        ok ? 'ok' : 'info',
-        ok ? 'Read key generated and copied' : 'Read key generated',
-        'Run setReadKey("<the key>") in Apps Script, then Connect.',
-      );
+      copyText(key);
+      showSecretModal('New read key', key, 'READ_KEY');
       return;
     }
     case 'gen-pin': {
       const pin = randomKey(32);
       const input = document.querySelector('form[data-form="connect"] input[name="pin"]');
       if (input) input.value = pin;
-      const ok = await copyText(pin);
-      toast(
-        ok ? 'ok' : 'info',
-        ok ? 'PIN generated and copied' : 'PIN generated',
-        'Run setPin("<the pin>") in Apps Script, then Connect.',
-      );
+      copyText(pin);
+      showSecretModal('New write PIN', pin, 'PIN');
+      return;
+    }
+    case 'copy-secret': {
+      const field = el.dataset.field === 'pin' ? 'pin' : 'readKey';
+      const input = document.querySelector(`form[data-form="connect"] input[name="${field}"]`);
+      const value = input ? input.value.trim() : '';
+      if (!value) {
+        toast('info', 'Nothing to copy yet', 'Click Generate to create one.');
+        return;
+      }
+      showSecretModal(field === 'pin' ? 'Write PIN' : 'Read key', value, field === 'pin' ? 'PIN' : 'READ_KEY');
       return;
     }
     default:

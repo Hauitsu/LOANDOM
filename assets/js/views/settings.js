@@ -33,6 +33,7 @@ function connectionPanel(state) {
           <span>Read key</span>
           <div class="input-with-action">
             <input name="readKey" type="password" value="${attr(state.settings.readKey)}" placeholder="set with setReadKey()" spellcheck="false" />
+            <button class="icon-btn" type="button" data-act="copy-secret" data-field="readKey" title="Show and copy" aria-label="Show and copy read key">${ico('copy', 14)}</button>
             <button class="btn small ghost" type="button" data-act="gen-readkey">${ico('key', 14)} Generate</button>
           </div>
           <small>Gates reads. Without one, anyone with the /exec URL can read the sheet.</small>
@@ -41,6 +42,7 @@ function connectionPanel(state) {
           <span>PIN</span>
           <div class="input-with-action">
             <input name="pin" type="password" value="${attr(state.settings.pin)}" placeholder="optional, set inside Apps Script" spellcheck="false" />
+            <button class="icon-btn" type="button" data-act="copy-secret" data-field="pin" title="Show and copy" aria-label="Show and copy PIN">${ico('copy', 14)}</button>
             <button class="btn small ghost" type="button" data-act="gen-pin">${ico('key', 14)} Generate</button>
           </div>
           <small>Gates writes. Use 32+ characters.</small>
