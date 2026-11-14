@@ -59,7 +59,7 @@ import { renderSettings } from './views/settings.js';
 import { portraitFor } from './portraits.js';
 import { classColor, classInfo, CLASSES } from './classes.js';
 import { classBadge } from './classbadge.js';
-import { toPortraitDataUrl } from './image.js';
+import { readPortraitFile, displayWidthFor } from './image.js';
 
 const ROUTES = {
   board: { label: 'Board', icon: 'sword', render: renderBoard },
@@ -202,6 +202,17 @@ function render() {
 
 /* ---------------------------------------------------------------- modals */
 
+function sizePortrait(img) {
+  if (!img) return;
+  const apply = () => {
+    if (!img.naturalWidth) return;
+    img.style.width = `${displayWidthFor(img.naturalWidth)}px`;
+    img.style.height = 'auto';
+  };
+  if (img.complete && img.naturalWidth) apply();
+  else img.addEventListener('load', apply, { once: true });
+}
+
 function openCharacterModal(charId) {
   const character = state.data.characters.find((c) => c.id === charId);
   if (!character) return;
@@ -224,6 +235,7 @@ function openCharacterModal(charId) {
   openModal({
     title: character.name,
     subtitle: `${player?.name || 'Unknown owner'} · ${used.length} assigned run${used.length === 1 ? '' : 's'} this week`,
+    wide: true,
     body: `
       <div class="portrait-edit">
         <div class="portrait-preview" style="--cc:${attr(tint)}" data-portrait-preview>
@@ -236,7 +248,7 @@ function openCharacterModal(charId) {
             <button type="button" class="btn small ghost danger-text" data-portrait-remove>Remove</button>
           </div>
           <input type="file" accept="image/*" data-portrait-input hidden />
-          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Saved at 128px; synced via the Portraits tab.</p>
+          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Shown at 70% of the original size; stored without re-encoding.</p>
         </div>
       </div>
       <form class="form-grid" data-form="char-edit" data-id="${attr(character.id)}">
@@ -292,16 +304,19 @@ function openCharacterModal(charId) {
         preview.innerHTML = url
           ? `<img src="${attr(url)}" alt="" />`
           : `<span>${esc(character.name.slice(0, 2))}</span>`;
+        sizePortrait(preview.querySelector('img'));
       };
       const applyBlob = async (blob) => {
         try {
-          const dataUrl = await toPortraitDataUrl(blob);
+          const { dataUrl } = await readPortraitFile(blob);
           await savePortrait(character, dataUrl);
           paint(dataUrl);
         } catch (error) {
           toast('error', 'Could not use that image', error.message);
         }
       };
+
+      sizePortrait(preview.querySelector('img'));
 
       modal.querySelector('[data-portrait-paste]').addEventListener('click', async () => {
         try {
@@ -466,6 +481,7 @@ function showCharTip(anchor, character) {
       ${character.goldEarner ? '<span class="tip-gold">Gold earner</span>' : ''}
     </div>`;
   charTip.hidden = false;
+  sizePortrait(charTip.querySelector('img'));
 
   const rect = anchor.getBoundingClientRect();
   const tipW = charTip.offsetWidth;

@@ -39,8 +39,9 @@ var TABS = {
   Ledger: ['id', 'week', 'kind', 'amount', 'source', 'note', 'playerId', 'characterId', 'updatedAt'],
   Portraits: [
     'key', 'mime', 'chunks',
-    'data', 'data2', 'data3', 'data4', 'data5', 'data6',
-    'data7', 'data8', 'data9', 'data10', 'data11', 'data12',
+    'data', 'data2', 'data3', 'data4', 'data5', 'data6', 'data7', 'data8',
+    'data9', 'data10', 'data11', 'data12', 'data13', 'data14', 'data15', 'data16',
+    'data17', 'data18', 'data19', 'data20', 'data21', 'data22', 'data23', 'data24',
     'updatedAt',
   ],
 };
@@ -322,7 +323,7 @@ function bumpRevision_() {
 /* ================================================================ snapshot */
 
 var PORTRAIT_CHUNK_CHARS = 40000;
-var PORTRAIT_MAX_PARTS = 12;
+var PORTRAIT_MAX_PARTS = 24;
 
 function portraitParts_(row) {
   var parts = [];
@@ -830,7 +831,7 @@ function upsertPortrait_(db, portrait) {
   var data = String(portrait.data || '');
   if (!data) return;
   if (data.length > PORTRAIT_CHUNK_CHARS * PORTRAIT_MAX_PARTS) {
-    throw new Error('Portrait is too large. Keep it under ~340 KB after compression.');
+    throw new Error('Portrait is too large. Keep it under ~650 KB; no compression is applied.');
   }
   var mime = String(portrait.mime || 'image/webp');
   if (mime.indexOf('image/') !== 0) mime = 'image/webp';

@@ -1,64 +1,39 @@
-/* Turn a pasted portrait into a data URL that fits in a sheet cell.
-   Aspect ratio is preserved and the image is stored at 70% of its original
-   dimensions; only quality is lowered when the sheet's chunk budget is hit. */
+/* Portraits are stored as-is (no re-encoding, no quality loss).
+   The UI renders them at 70% of their natural dimensions, preserving ratio. */
 
-const MIN_SCALE = 0.7;
-const MAX_CHARS = 460000;
+const MAX_BYTES = 650 * 1024; // 650 KB -> ~870k base64 chars, inside the 24-cell budget
 
-async function loadBitmap(blob) {
-  if (typeof createImageBitmap === 'function') {
-    return createImageBitmap(blob);
-  }
+function readAsDataUrl(blob) {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('That file is not a readable image.'));
-    };
-    img.src = url;
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.readAsDataURL(blob);
   });
 }
 
-export async function toPortraitDataUrl(blob) {
+function measure(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new Error('That file is not a readable image.'));
+    img.src = dataUrl;
+  });
+}
+
+export async function readPortraitFile(blob) {
   if (!blob || !String(blob.type || '').startsWith('image/')) {
     throw new Error('That is not an image.');
   }
-  const bitmap = await loadBitmap(blob);
-  const width = bitmap.width || bitmap.naturalWidth;
-  const height = bitmap.height || bitmap.naturalHeight;
-  if (!width || !height) throw new Error('That image has no pixels.');
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('This browser cannot process images.');
-  ctx.imageSmoothingQuality = 'high';
-
-  const scale = MIN_SCALE;
-  const targetW = Math.max(1, Math.round(width * scale));
-  const targetH = Math.max(1, Math.round(height * scale));
-  canvas.width = targetW;
-  canvas.height = targetH;
-
-  const draw = (quality) => {
-    ctx.clearRect(0, 0, targetW, targetH);
-    ctx.drawImage(bitmap, 0, 0, targetW, targetH);
-    const type = canvas.toDataURL('image/webp').startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
-    return canvas.toDataURL(type, quality);
-  };
-
-  let quality = 0.86;
-  let url = draw(quality);
-  while (url.length > MAX_CHARS && quality > 0.35) {
-    quality -= 0.08;
-    url = draw(quality);
+  if (blob.size > MAX_BYTES) {
+    throw new Error('That image is larger than 650 KB. Use a smaller copy — no compression is applied.');
   }
-  if (url.length > MAX_CHARS) {
-    throw new Error('Portrait is still too large at 70% size. Use a smaller source image.');
+  const dataUrl = await readAsDataUrl(blob);
+  if (dataUrl.length > 950000) {
+    throw new Error('That image is too large for the sheet. Use a smaller copy.');
   }
-  return url;
+  const { width, height } = await measure(dataUrl);
+  return { dataUrl, width, height, bytes: blob.size };
 }
+
+export const displayWidthFor = (naturalWidth) => Math.max(1, Math.round(naturalWidth * 0.7));
