@@ -77,3 +77,25 @@ export function deleteLocalPortrait(key) {
 
 export const portraitSource = () => source;
 export const portraitCount = () => cache.size;
+
+/** Local-only portraits (used to migrate to the sheet after a redeploy). */
+export function localEntries() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
+    return Object.keys(parsed)
+      .filter((key) => typeof parsed[key] === 'string' && parsed[key].startsWith('data:image/'))
+      .map((key) => [key, parsed[key]]);
+  } catch {
+    return [];
+  }
+}
+
+export function clearLocalKeys(keys) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}');
+    (keys || []).forEach((key) => delete parsed[key]);
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(parsed));
+  } catch {
+    /* ignore */
+  }
+}

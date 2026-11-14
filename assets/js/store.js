@@ -166,13 +166,40 @@ export async function refreshPortraits({ silent = true } = {}) {
   if (state.status === 'remote' && remoteAdapter) {
     try {
       const items = await remoteAdapter.portraits(settings.readKey);
-      portraits.replacePortraits(
-        items.map((item) => ({
-          key: item.key,
-          url: `data:${item.mime || 'image/webp'};base64,${item.data}`,
-        })),
-      );
+      const remoteKeys = new Set(items.map((item) => item.key));
+      const merged = items.map((item) => ({
+        key: item.key,
+        url: `data:${item.mime || 'image/webp'};base64,${item.data}`,
+      }));
+
+      // Keep local-only portraits visible, and migrate them once the script supports it.
+      const locals = portraits.localEntries();
+      locals.forEach(([key, url]) => {
+        if (!remoteKeys.has(key)) merged.push({ key, url });
+      });
+      portraits.replacePortraits(merged);
       emit();
+
+      if (locals.length && settings.pin) {
+        const ops = locals
+          .filter(([key]) => !remoteKeys.has(key))
+          .map(([key, url]) => {
+            const match = /^data:(image\/[^;]+);base64,([\s\S]+)$/i.exec(url);
+            return match ? { type: 'portrait.upsert', portrait: { key, mime: match[1], data: match[2] } } : null;
+          })
+          .filter(Boolean);
+        if (ops.length) {
+          try {
+            const res = await remoteAdapter.send(settings.pin, ops);
+            if (res.applied) {
+              portraits.clearLocalKeys(ops.map((op) => op.portrait.key));
+              notify('ok', `Synced ${ops.length} portrait${ops.length === 1 ? '' : 's'} to the sheet`);
+            }
+          } catch {
+            /* keep them local */
+          }
+        }
+      }
       return;
     } catch (error) {
       if (!silent) notify('error', 'Could not load portraits', error.message);
