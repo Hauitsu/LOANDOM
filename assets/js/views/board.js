@@ -3,6 +3,7 @@
 import { esc, attr, fmt, num, weekLabel, colorFor, textOn } from '../util.js';
 import { ico } from '../icons.js';
 import { progressBar } from '../ui.js';
+import { classBadge } from '../classbadge.js';
 
 function diffClass(difficulty) {
   const d = String(difficulty || '').toLowerCase();
@@ -38,13 +39,14 @@ function slotCell(row, raid, player, state, charMap) {
   ]
     .filter(Boolean)
     .join(' · ');
-  return `<button class="slot ${ilvlWarn ? 'is-warn' : ''}" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}" title="${attr(title)}">
+  return `<button class="slot ${ilvlWarn ? 'is-warn' : ''}" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}"${character ? ` data-char-tip="${attr(character.id)}"` : ''} title="${attr(title)}">
+    ${classBadge(character?.className, 14)}
     <span class="slot-name">${esc(label)}</span>
     ${ilvlWarn ? `<span class="slot-flag">${ico('warning', 11)}</span>` : ''}
   </button>`;
 }
 
-function raidCard(block, state, charMap) {
+function raidCard(block, state, charMap, focused = false) {
   const { raid, rows, totals, clearedRuns, runCount } = block;
   const players = state.data.players.slice().sort((a, b) => num(a.order, 999) - num(b.order, 999));
   const money = payout(raid);
@@ -84,7 +86,7 @@ function raidCard(block, state, charMap) {
        </div>`;
 
   return `
-  <article class="raid ${raid.active === false ? 'is-inactive' : ''}">
+  <article class="raid ${raid.active === false ? 'is-inactive' : ''} ${focused ? 'is-focused' : ''}">
     <header class="raid-head">
       <div class="raid-headline">
         <div class="raid-title">
@@ -97,9 +99,15 @@ function raidCard(block, state, charMap) {
           ${raid.note ? `<span class="meta-item muted">${esc(raid.note)}</span>` : ''}
         </div>
       </div>
-      <div class="raid-payout" title="${attr(money.split)}">
-        <span class="payout-main">${money.main}</span>
-        <span class="payout-unit">G / run</span>
+      <div class="raid-head-right">
+        <button class="icon-btn focus-btn" data-act="focus-raid" data-raid="${attr(raid.id)}"
+          title="${focused ? 'Back to all raids' : 'Focus this raid'}" aria-label="${focused ? 'Back to all raids' : 'Focus this raid'}">
+          ${ico(focused ? 'grid' : 'expand', 16)}
+        </button>
+        <div class="raid-payout" title="${attr(money.split)}">
+          <span class="payout-main">${money.main}</span>
+          <span class="payout-unit">G / run</span>
+        </div>
       </div>
     </header>
 
@@ -180,6 +188,28 @@ export function renderBoard(state, stats) {
         <h3>No raids configured</h3>
         <p>Add your weekly raids and their gold payouts in Settings — the board builds itself from there.</p>
         <button class="btn primary" data-act="goto" data-route="settings">${ico('settings', 15)} Open settings</button>
+      </div>`;
+  }
+
+  const focusBlock = state.focusRaidId
+    ? stats.raidBlocks.find((block) => block.raid.id === state.focusRaidId)
+    : null;
+
+  if (focusBlock) {
+    return `
+      ${state.status === 'remote' && state.readOnly ? readOnlyTip() : ''}
+      ${state.status === 'demo' ? demoTip(state) : ''}
+      <div class="view-head">
+        <div>
+          <h1>${esc(focusBlock.raid.name)} <span class="week-chip">${esc(weekLabel(state.week))}</span></h1>
+          <p>Focused board — ${esc(focusBlock.raid.difficulty)} · iLvl ${esc(focusBlock.raid.ilvl)} · ${focusBlock.clearedRuns}/${focusBlock.runCount} runs cleared.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn" data-act="focus-raid" data-raid="">${ico('grid', 15)} All raids</button>
+        </div>
+      </div>
+      <div class="raid-grid raid-grid-focus">
+        ${raidCard(focusBlock, state, charMap, true)}
       </div>`;
   }
 

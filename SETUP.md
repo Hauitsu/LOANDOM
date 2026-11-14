@@ -48,7 +48,7 @@ No server, no domain, no billing. You need a Google account and five minutes.
 
 `setup()` creates the eight tabs, headers, and the default catalog (four raids, four owners). If you had `Sheet1`, it removes it when empty.
 
-> **Portraits** hold pasted character images as base64 (128px, ~3–8 KB each). If you already ran `setup()` before this tab existed, either run it again or simply redeploy and open the app — missing tabs are created on demand. Portraits stay local to one browser until the updated `Code.gs` is deployed.
+> **Portraits** hold pasted character images as base64 — aspect-preserved, up to 384px on the long side, roughly 5–30 KB each. If you already ran `setup()` before this tab existed, either run it again or simply redeploy and open the app — missing tabs are created on demand. Portraits stay local to one browser until the updated `Code.gs` is deployed.
 
 You should see a toast: *“LOANDOM sheet is ready.”*
 

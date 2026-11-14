@@ -10,6 +10,7 @@ import {
   setWeek,
   stepWeek,
   goCurrentWeek,
+  setFocusRaid,
   toggleClear,
   addRun,
   duplicateRun,
@@ -56,8 +57,9 @@ import { renderSummary } from './views/summary.js';
 import { renderLedger } from './views/ledger.js';
 import { renderSettings } from './views/settings.js';
 import { portraitFor } from './portraits.js';
-import { classColor, CLASSES } from './classes.js';
-import { toSquareDataUrl } from './image.js';
+import { classColor, classInfo, CLASSES } from './classes.js';
+import { classBadge } from './classbadge.js';
+import { toPortraitDataUrl } from './image.js';
 
 const ROUTES = {
   board: { label: 'Board', icon: 'sword', render: renderBoard },
@@ -68,9 +70,17 @@ const ROUTES = {
 };
 
 const weekFromHash = () => {
-  const route = (location.hash.replace(/^#\/?/, '') || 'board').split('?')[0];
-  return ROUTES[route] ? route : 'board';
+  const raw = location.hash.replace(/^#\/?/, '') || 'board';
+  const [route, param] = raw.split('/');
+  if (route === 'raid' && param) return { route: 'board', raidId: decodeURIComponent(param) };
+  return { route: ROUTES[route] ? route : 'board', raidId: '' };
 };
+
+function applyHash() {
+  const { route, raidId } = weekFromHash();
+  setFocusRaid(raidId);
+  setRoute(route);
+}
 
 /* ---------------------------------------------------------------- shell */
 
@@ -285,7 +295,7 @@ function openCharacterModal(charId) {
       };
       const applyBlob = async (blob) => {
         try {
-          const dataUrl = await toSquareDataUrl(blob);
+          const dataUrl = await toPortraitDataUrl(blob);
           await savePortrait(character, dataUrl);
           paint(dataUrl);
         } catch (error) {
@@ -373,7 +383,14 @@ function openCellPicker(anchor, runId, playerId) {
   const assignment = state.data.assignments.find((a) => a.runId === runId && a.playerId === playerId);
   const items = state.data.characters
     .filter((c) => c.playerId === playerId && c.active !== false)
-    .sort((a, b) => num(b.ilvl) - num(a.ilvl) || a.name.localeCompare(b.name));
+    .sort((a, b) => num(b.ilvl) - num(a.ilvl) || a.name.localeCompare(b.name))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      ilvl: c.ilvl,
+      className: c.className,
+      portrait: portraitFor(c),
+    }));
 
   openCharacterPopover(anchor, {
     player: { ...player, color: player.color || colorFor(player.name) },
@@ -419,6 +436,63 @@ function randomKey(length = 32) {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
+
+/* ---------------------------------------------------------- char tooltip */
+
+let charTip = null;
+
+function hideCharTip() {
+  if (charTip) charTip.hidden = true;
+}
+
+function showCharTip(anchor, character) {
+  if (!charTip) {
+    charTip = document.createElement('div');
+    charTip.className = 'char-tip';
+    charTip.hidden = true;
+    document.body.appendChild(charTip);
+  }
+  const player = state.data.players.find((p) => p.id === character.playerId);
+  const pic = portraitFor(character);
+  const info = classInfo(character.className);
+  charTip.innerHTML = `
+    <div class="tip-media">
+      ${pic ? `<img src="${attr(pic)}" alt="" />` : classBadge(character.className, 64)}
+    </div>
+    <div class="tip-body">
+      <strong>${esc(character.name)}</strong>
+      <span class="muted">${esc(player?.name || '')}${info ? ` · ${esc(info.name)}` : character.className ? ` · ${esc(character.className)}` : ''}</span>
+      <span>iLvl ${esc(character.ilvl || '—')}</span>
+      ${character.goldEarner ? '<span class="tip-gold">Gold earner</span>' : ''}
+    </div>`;
+  charTip.hidden = false;
+
+  const rect = anchor.getBoundingClientRect();
+  const tipW = charTip.offsetWidth;
+  const tipH = charTip.offsetHeight;
+  let left = rect.left + rect.width / 2 - tipW / 2;
+  let top = rect.bottom + 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+  if (top + tipH > window.innerHeight - 8) top = Math.max(8, rect.top - tipH - 8);
+  charTip.style.left = `${left}px`;
+  charTip.style.top = `${top}px`;
+}
+
+document.addEventListener('mouseover', (event) => {
+  const el = event.target.closest('[data-char-tip]');
+  if (!el || el.contains(event.relatedTarget)) return;
+  const character = state.data.characters.find((c) => c.id === el.dataset.charTip);
+  if (character) showCharTip(el, character);
+});
+
+document.addEventListener('mouseout', (event) => {
+  const el = event.target.closest('[data-char-tip]');
+  if (!el || el.contains(event.relatedTarget)) return;
+  hideCharTip();
+});
+
+window.addEventListener('scroll', hideCharTip, true);
+document.addEventListener('click', hideCharTip);
 
 function showSecretModal(title, value, property) {
   openModal({
@@ -495,6 +569,18 @@ document.addEventListener('click', async (event) => {
     case 'jump-week':
       setWeek(el.dataset.week);
       return;
+    case 'focus-raid': {
+      const raidId = el.dataset.raid || '';
+      if (!raidId) {
+        setFocusRaid('');
+        if (location.hash !== '#/board') location.hash = '#/board';
+      } else {
+        setFocusRaid(raidId);
+        const target = `#/raid/${encodeURIComponent(raidId)}`;
+        if (location.hash !== target) location.hash = target;
+      }
+      return;
+    }
     case 'toggle':
       toggleClear(el.dataset.run);
       return;
@@ -840,7 +926,7 @@ document.addEventListener('keydown', (event) => {
 });
 
 window.addEventListener('hashchange', () => {
-  setRoute(weekFromHash());
+  applyHash();
   closePopover();
 });
 
@@ -859,7 +945,7 @@ if (invite) {
   );
 }
 
-setRoute(weekFromHash());
+applyHash();
 init().catch((error) => {
   console.error(error);
   toast('error', 'Could not start', error.message);

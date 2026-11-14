@@ -461,14 +461,12 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--gold); }
 .roster-table th { padding: 6px 10px; }
 .roster-table td { padding: 6px 10px; }
 .char-name-cell { display: flex; align-items: center; gap: 7px; }
-.char-pic {
-  width: 27px; height: 27px; border-radius: 8px; flex: none; overflow: hidden;
-  display: inline-grid; place-items: center; vertical-align: middle;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc, #4b566c) 55%, transparent);
-  color: #dbe3f2; font-size: 9.5px; font-weight: 750; letter-spacing: 0.02em;
+.class-logo {
+  display: inline-grid; place-items: center; flex: none; border-radius: 7px;
+  background: color-mix(in srgb, var(--cc, #5b6579) 16%, rgba(255, 255, 255, 0.03));
+  color: var(--cc, #8590a6);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc, #5b6579) 42%, transparent);
 }
-.char-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .class-dot { display: inline-block; width: 6px; height: 6px; border-radius: 99px; margin-right: 6px; vertical-align: 1px; }
 .char-name {
   border: 0; background: transparent; padding: 2px 0; cursor: pointer; display: inline-flex;
@@ -687,12 +685,13 @@ tr:hover .row-actions { opacity: 1; }
 .modal .form-grid { padding-top: 6px; }
 .portrait-edit { display: flex; gap: 14px; align-items: center; padding: 6px 0 14px; margin-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
 .portrait-preview {
-  width: 74px; height: 74px; border-radius: 16px; flex: none; overflow: hidden;
-  display: grid; place-items: center; background: rgba(255, 255, 255, 0.05);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc, #4b566c) 55%, transparent), 0 8px 20px rgba(0, 0, 0, 0.25);
+  min-width: 100px; min-height: 120px; max-width: 230px; max-height: 280px;
+  border-radius: 12px; flex: none; overflow: hidden; padding: 4px;
+  display: grid; place-items: center; background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc, #4b566c) 50%, transparent), 0 8px 20px rgba(0, 0, 0, 0.25);
   font-size: 21px; font-weight: 800; color: #dbe3f2;
 }
-.portrait-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.portrait-preview img { max-width: 100%; max-height: 270px; width: auto; height: auto; object-fit: contain; display: block; border-radius: 9px; }
 .portrait-side { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .portrait-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .portrait-side .tiny-note { line-height: 1.35; }
@@ -707,7 +706,7 @@ tr:hover .row-actions { opacity: 1; }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(0.99); } }
 
 .popover {
-  position: fixed; z-index: 80; width: 270px;
+  position: fixed; z-index: 80; width: 300px;
   background: linear-gradient(180deg, #181f2c, #121720);
   border: 1px solid #2c3750; border-radius: 12px; box-shadow: var(--shadow);
   overflow: hidden; animation: pop 0.12s ease-out;
@@ -725,12 +724,50 @@ tr:hover .row-actions { opacity: 1; }
 }
 .pop-item:hover, .pop-item:focus-visible { background: rgba(232, 184, 75, 0.1); color: var(--text); outline: none; }
 .pop-item.is-current { color: var(--gold-bright); }
-.pop-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pop-meta { font-size: 10px; color: var(--muted); }
+.pop-portrait { height: 44px; width: auto; max-width: 54px; object-fit: contain; flex: none; border-radius: 6px; background: rgba(255, 255, 255, 0.04); }
+.pop-text { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.25; }
 .pop-create { color: var(--gold); border-top: 1px solid var(--line-soft); margin-top: 4px; border-radius: 0 0 7px 7px; }
 .pop-empty { padding: 14px 10px; font-size: 11.5px; color: var(--muted); text-align: center; }
 .popover-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-top: 1px solid var(--line-soft); background: rgba(0, 0, 0, 0.2); }
 .popover-keys { font-size: 9.5px; color: var(--muted); }
+
+/* --------------------------------------------------------- character tip */
+
+.char-tip {
+  position: fixed; z-index: 85; width: 280px; padding: 10px;
+  display: flex; gap: 10px; align-items: flex-start; pointer-events: none;
+  background: linear-gradient(180deg, #181f2c, #121720);
+  border: 1px solid #2c3750; border-radius: 12px; box-shadow: var(--shadow);
+}
+.char-tip[hidden] { display: none; }
+.tip-media { flex: none; width: 112px; display: grid; place-items: center; }
+.tip-media img { max-width: 112px; max-height: 200px; width: auto; height: auto; display: block; border-radius: 8px; }
+.tip-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 12px; }
+.tip-body strong { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; }
+.tip-gold { color: var(--gold); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; }
+
+/* ------------------------------------------------------------ focus mode */
+
+.raid-grid-focus { grid-template-columns: minmax(0, 1fr); }
+.raid-head-right { display: flex; align-items: center; gap: 10px; flex: none; }
+.focus-btn { width: 30px; height: 30px; border-radius: 8px; }
+.raid.is-focused { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42); }
+.raid.is-focused .raid-title h2 { font-size: 18px; }
+.raid.is-focused .payout-main { font-size: 30px; }
+.raid.is-focused .raid-row {
+  min-height: 46px;
+  grid-template-columns: 40px repeat(var(--players, 3), minmax(0, 1fr)) 110px 54px;
+}
+.raid.is-focused .slot { height: 36px; font-size: 13.5px; }
+.raid.is-focused .check { width: 30px; height: 30px; }
+.raid.is-focused .cell.gold { padding-right: 14px; }
+.raid.is-focused .gold-value { font-size: 14px; }
+
+@media (hover: none) {
+  .char-tip { display: none; }
+}
 
 #toasts { position: fixed; right: 16px; bottom: 16px; z-index: 90; display: flex; flex-direction: column; gap: 8px; width: min(360px, calc(100vw - 32px)); }
 .toast {
@@ -798,6 +835,8 @@ tr:hover .row-actions { opacity: 1; }
   .total strong { font-size: 14px; }
   .total-sep { margin: 0 2px; }
   .raid-row { min-width: 0; grid-template-columns: 24px repeat(var(--players, 3), minmax(0, 1fr)) 54px 32px; }
+  .raid.is-focused .raid-row { grid-template-columns: 24px repeat(var(--players, 3), minmax(0, 1fr)) 54px 32px; }
+  .raid.is-focused .slot { height: 30px; font-size: 11px; }
   .raid-row .cell { padding: 2px 3px; }
   .raid-table { overflow-x: visible; }
   .slot { padding: 0 5px; font-size: 11px; }

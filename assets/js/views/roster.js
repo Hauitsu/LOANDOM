@@ -3,8 +3,8 @@
 import { esc, attr, num, colorFor, textOn } from '../util.js';
 import { ico } from '../icons.js';
 import { progressBar } from '../ui.js';
-import { portraitFor } from '../portraits.js';
 import { classColor } from '../classes.js';
+import { classBadge } from '../classbadge.js';
 
 function usageMap(stats) {
   const map = new Map();
@@ -26,7 +26,6 @@ function characterRow(character, player, usage, eligibleRaids) {
   const clearedCount = used.filter((u) => u.cleared).length;
   const overCap = clearedCount > 3;
   const belowLevel = used.filter((u) => character.ilvl && u.raid.ilvl && character.ilvl < u.raid.ilvl);
-  const pic = portraitFor(character);
   const tint = classColor(character.className);
 
   const chips = used.length
@@ -42,10 +41,8 @@ function characterRow(character, player, usage, eligibleRaids) {
   return `
     <tr class="${!character.active ? 'is-inactive' : ''}" data-char="${attr(character.id)}">
       <td class="char-name-cell">
-        <span class="char-pic" style="--cc:${attr(tint)}">
-          ${pic ? `<img src="${attr(pic)}" alt="" loading="lazy" />` : `<span>${esc((character.name || '?').slice(0, 2))}</span>`}
-        </span>
-        <button class="char-name" data-act="edit-char" data-char="${attr(character.id)}">
+        ${classBadge(character.className, 22)}
+        <button class="char-name" data-act="edit-char" data-char="${attr(character.id)}" data-char-tip="${attr(character.id)}">
           ${character.goldEarner ? `<span class="crown" title="Gold earner">${ico('crown', 11)}</span>` : ''}
           <span>${esc(character.name)}</span>
         </button>

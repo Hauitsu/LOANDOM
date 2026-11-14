@@ -2,6 +2,7 @@
 
 import { esc, attr } from './util.js';
 import { ico } from './icons.js';
+import { classBadge } from './classbadge.js';
 
 const overlay = () => document.getElementById('overlay');
 const toastHost = () => document.getElementById('toasts');
@@ -159,8 +160,11 @@ export function openCharacterPopover(anchor, { player, items, current, onPick })
         .map(
           (item) => `
         <button class="pop-item ${item.name === current ? 'is-current' : ''}" data-name="${attr(item.name)}" role="option">
-          <span class="pop-name">${esc(item.name)}</span>
-          <span class="pop-meta">${item.ilvl ? `iLvl ${esc(item.ilvl)}` : ''}${item.className ? ` · ${esc(item.className)}` : ''}</span>
+          ${item.portrait ? `<img class="pop-portrait" src="${attr(item.portrait)}" alt="" loading="lazy" />` : classBadge(item.className, 30)}
+          <span class="pop-text">
+            <span class="pop-name">${esc(item.name)}</span>
+            <span class="pop-meta">${item.ilvl ? `iLvl ${esc(item.ilvl)}` : ''}${item.className ? ` · ${esc(item.className)}` : ''}</span>
+          </span>
         </button>`,
         )
         .join('') +
@@ -207,8 +211,8 @@ export function openCharacterPopover(anchor, { player, items, current, onPick })
 
   // Position under the anchor, flipping up when there is no room.
   const rect = anchor.getBoundingClientRect();
-  const width = 260;
-  const height = 330;
+  const width = 300;
+  const height = 360;
   let left = Math.min(rect.left, window.innerWidth - width - 12);
   let top = rect.bottom + 6;
   if (top + height > window.innerHeight - 12) top = Math.max(12, rect.top - height - 6);

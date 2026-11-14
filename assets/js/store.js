@@ -49,6 +49,7 @@ export const state = {
   readOnly: false,
   keyEnforced: false,
   sheetTimeZone: null,
+  focusRaidId: '',
   settings,
   sync: { state: 'idle', revision: 0, at: null, error: '', pending: 0 },
 };
@@ -384,6 +385,11 @@ export function goCurrentWeek() {
 
 export function setRoute(route) {
   state.route = route;
+  emit();
+}
+
+export function setFocusRaid(raidId) {
+  state.focusRaidId = raidId || '';
   emit();
 }
 
