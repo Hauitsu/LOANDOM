@@ -1,5 +1,5 @@
 /* Portraits are stored as-is (no re-encoding, no quality loss).
-   The UI renders them at 70% of their natural dimensions, preserving ratio. */
+   The UI renders them at 50% of their natural dimensions, preserving ratio. */
 
 const MAX_BYTES = 9 * 1024 * 1024; // originals go to Google Drive, not a sheet cell
 
@@ -33,4 +33,5 @@ export async function readPortraitFile(blob) {
   return { dataUrl, width, height, bytes: blob.size };
 }
 
-export const displayWidthFor = (naturalWidth) => Math.max(1, Math.round(naturalWidth * 0.7));
+export const displayWidthFor = (naturalWidth, ratio = 0.5) =>
+  Math.max(1, Math.round(naturalWidth * ratio));

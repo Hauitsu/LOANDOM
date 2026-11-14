@@ -737,14 +737,16 @@ tr:hover .row-actions { opacity: 1; }
 
 .char-tip {
   position: fixed; z-index: 85; width: auto; max-width: 92vw; padding: 10px;
-  display: flex; gap: 10px; align-items: flex-start; pointer-events: none;
+  display: flex; gap: 10px; align-items: center; pointer-events: none;
   background: linear-gradient(180deg, #181f2c, #121720);
   border: 1px solid #2c3750; border-radius: 12px; box-shadow: var(--shadow);
 }
 .char-tip[hidden] { display: none; }
-.tip-media { flex: none; width: auto; display: grid; place-items: center; }
-.tip-media img { max-width: 65vw; max-height: 85vh; width: auto; height: auto; display: block; border-radius: 8px; }
-.tip-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 12px; }
+.tip-media { flex: 0 0 auto; width: auto; display: grid; place-items: center; }
+/* Width is set inline to 50% of the portrait's natural size (see sizePortrait).
+   These caps only kick in on tiny viewports so the tip always fits on screen. */
+.tip-media img { max-width: 60vw; max-height: 78vh; height: auto; display: block; border-radius: 8px; }
+.tip-body { display: flex; flex-direction: column; gap: 3px; min-width: 150px; max-width: 240px; font-size: 12px; }
 .tip-body strong { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; }
 .tip-gold { color: var(--gold); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; }
 

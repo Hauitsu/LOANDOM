@@ -202,7 +202,7 @@ function render() {
 
 /* ---------------------------------------------------------------- modals */
 
-function sizePortrait(img) {
+function sizePortrait(img, onResize) {
   if (!img) return;
   const fallback = img.dataset.portraitFallback;
   if (fallback) {
@@ -216,12 +216,18 @@ function sizePortrait(img) {
     );
   }
   const apply = () => {
-    if (!img.naturalWidth) return;
-    img.style.width = `${displayWidthFor(img.naturalWidth)}px`;
-    img.style.height = 'auto';
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    // 50% of the portrait's natural size, shrunk only on viewports that can't fit it.
+    const cap = Math.min(60 * window.innerWidth / 100, 78 * window.innerHeight / 100);
+    const natural = displayWidthFor(img.naturalWidth); // width at 50%
+    const naturalHeight = Math.round(natural * (img.naturalHeight / img.naturalWidth));
+    const scale = Math.min(1, cap / natural, cap / naturalHeight);
+    img.style.width = `${Math.round(natural * scale)}px`;
+    if (typeof onResize === 'function') onResize();
   };
   if (img.complete && img.naturalWidth) apply();
   else img.addEventListener('load', apply, { once: true });
+  return apply;
 }
 
 function openCharacterModal(charId) {
@@ -260,7 +266,7 @@ function openCharacterModal(charId) {
             <button type="button" class="btn small ghost danger-text" data-portrait-remove>Remove</button>
           </div>
           <input type="file" accept="image/*" data-portrait-input hidden />
-          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Shown at 70% of the original size; stored without re-encoding.</p>
+          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Shown at 50% of the original size; stored without re-encoding.</p>
         </div>
       </div>
       <form class="form-grid" data-form="char-edit" data-id="${attr(character.id)}">
@@ -316,7 +322,10 @@ function openCharacterModal(charId) {
         preview.innerHTML = url
           ? `<img src="${attr(url)}" alt="" />`
           : `<span>${esc(character.name.slice(0, 2))}</span>`;
-        sizePortrait(preview.querySelector('img'));
+        const img = preview.querySelector('img');
+        const apply = sizePortrait(img);
+        // The new src may already be decoded before the load listener could attach.
+        if (img?.complete && apply) apply();
       };
       const applyBlob = async (blob) => {
         try {
@@ -327,6 +336,7 @@ function openCharacterModal(charId) {
           toast('error', 'Could not use that image', error.message);
         }
       };
+
 
       sizePortrait(preview.querySelector('img'));
 
@@ -472,6 +482,22 @@ function hideCharTip() {
   if (charTip) charTip.hidden = true;
 }
 
+function positionCharTip(anchor) {
+  if (!charTip || !anchor || !anchor.isConnected) {
+    hideCharTip();
+    return;
+  }
+  const rect = anchor.getBoundingClientRect();
+  const tipW = charTip.offsetWidth;
+  const tipH = charTip.offsetHeight;
+  let left = rect.left + rect.width / 2 - tipW / 2;
+  let top = rect.bottom + 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+  if (top + tipH > window.innerHeight - 8) top = Math.max(8, rect.top - tipH - 8);
+  charTip.style.left = `${left}px`;
+  charTip.style.top = `${top}px`;
+}
+
 function showCharTip(anchor, character) {
   if (!charTip) {
     charTip = document.createElement('div');
@@ -494,17 +520,8 @@ function showCharTip(anchor, character) {
       ${character.goldEarner ? '<span class="tip-gold">Gold earner</span>' : ''}
     </div>`;
   charTip.hidden = false;
-  sizePortrait(charTip.querySelector('img'));
-
-  const rect = anchor.getBoundingClientRect();
-  const tipW = charTip.offsetWidth;
-  const tipH = charTip.offsetHeight;
-  let left = rect.left + rect.width / 2 - tipW / 2;
-  let top = rect.bottom + 8;
-  left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
-  if (top + tipH > window.innerHeight - 8) top = Math.max(8, rect.top - tipH - 8);
-  charTip.style.left = `${left}px`;
-  charTip.style.top = `${top}px`;
+  positionCharTip(anchor);
+  sizePortrait(charTip.querySelector('img'), () => positionCharTip(anchor));
 }
 
 document.addEventListener('mouseover', (event) => {
@@ -946,6 +963,7 @@ document.addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') hideCharTip();
   const tag = event.target.tagName;
   const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.target.isContentEditable;
   if (typing) return;
