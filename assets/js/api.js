@@ -42,7 +42,37 @@ export function createRemote(endpoint) {
     endpoint: url,
 
     /** Full snapshot, or a cheap "unchanged" answer when the revision matches. */
-    async load(sinceRevision) {
+    async load(sinceRevision, readKey) {
+      if (readKey) {
+        // POST keeps the read key out of URLs, history and server access logs.
+        const response = await fetch(url, {
+          method: 'POST',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ op: 'snapshot', key: readKey, rev: sinceRevision || undefined }),
+        });
+        if (!response.ok) {
+          throw new ApiError(`Sheet endpoint answered HTTP ${response.status}.`, 'HTTP', String(response.status));
+        }
+        const json = await parseJson(response);
+        if (json.ok === false) {
+          if (json.code === 'BAD_KEY') {
+            throw new ApiError(
+              'Wrong read key — paste the same string you set with setReadKey() in Apps Script.',
+              'BAD_KEY',
+            );
+          }
+          if (json.code === 'UNKNOWN_OP') {
+            throw new ApiError(
+              'This deployment does not support read keys yet. Update Code.gs, deploy a new version, then reconnect.',
+              'OLD_BACKEND',
+            );
+          }
+          throw new ApiError(json.message || 'The sheet endpoint refused the request.', json.code || 'REMOTE');
+        }
+        return json;
+      }
+
       const target = new URL(url);
       target.searchParams.set('op', 'snapshot');
       if (sinceRevision) target.searchParams.set('rev', String(sinceRevision));
@@ -54,6 +84,12 @@ export function createRemote(endpoint) {
       }
       const json = await parseJson(response);
       if (json.ok === false) {
+        if (json.code === 'BAD_KEY') {
+          throw new ApiError(
+            'This sheet is protected by a read key. Add it in Settings → Google Sheet → Read key.',
+            'BAD_KEY',
+          );
+        }
         throw new ApiError(json.message || 'The sheet endpoint refused the request.', json.code || 'REMOTE');
       }
       return json;

@@ -34,6 +34,8 @@ import {
   retryQueue,
   setGoldMode,
   saveSettings,
+  consumeInviteHash,
+  buildInvite,
   currentStats,
 } from './store.js';
 import { $, esc, attr, fmt, num, weekLabel, weekYear, ago, download, colorFor } from './util.js';
@@ -80,6 +82,11 @@ function syncPill() {
   if (sync.state === 'error') {
     return `<button class="sync-pill is-error" data-act="retry" title="${attr(sync.error)}" aria-label="Sync error, retry">
       ${ico('warning', 14)} <span>Sync error${sync.pending ? ` · ${sync.pending} queued` : ''}</span>
+    </button>`;
+  }
+  if (state.readOnly) {
+    return `<button class="sync-pill is-readonly" data-act="goto" data-route="settings" title="Read-only access — ask for the editor link" aria-label="Read-only access">
+      ${ico('key', 14)} <span>Read-only</span>
     </button>`;
   }
   return `<button class="sync-pill is-on" data-act="sync-now" title="Revision ${attr(sync.revision)} · click to sync now" aria-label="Synced ${attr(ago(sync.at))}, sync now">
@@ -306,10 +313,64 @@ function go(route) {
   else location.hash = `#/${route}`;
 }
 
+async function copyText(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = value;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch {
+      ok = false;
+    }
+    area.remove();
+    return ok;
+  }
+}
+
+function randomKey(length = 32) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+}
+
+const WRITE_ACTIONS = new Set([
+  'toggle',
+  'cell',
+  'add-run',
+  'dup-run',
+  'del-run',
+  'edit-char',
+  'del-char',
+  'ledger-del',
+  'raid-active',
+  'raid-del',
+  'push-data',
+  'push-seed',
+]);
+
+const WRITE_FORMS = new Set(['add-char', 'add-raid', 'ledger-add']);
+
+function blockReadOnly() {
+  toast('info', 'Read-only access', 'Ask the owner for the editor link to change runs.');
+}
+
 document.addEventListener('click', async (event) => {
   const el = event.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
+
+  if (state.readOnly && WRITE_ACTIONS.has(act)) {
+    blockReadOnly();
+    return;
+  }
 
   switch (act) {
     case 'goto':
@@ -475,6 +536,42 @@ document.addEventListener('click', async (event) => {
       }
       return;
     }
+    case 'copy-invite': {
+      const includePin = el.dataset.mode === 'edit';
+      const link = buildInvite(includePin);
+      if (!link) {
+        toast('error', 'Connect the sheet first');
+        return;
+      }
+      const ok = await copyText(link);
+      if (ok) toast('ok', includePin ? 'Editor link copied' : 'Member link copied', 'Send it privately.');
+      else toast('error', 'Could not copy the link', link);
+      return;
+    }
+    case 'gen-readkey': {
+      const key = randomKey(32);
+      const input = document.querySelector('form[data-form="connect"] input[name="readKey"]');
+      if (input) input.value = key;
+      const ok = await copyText(key);
+      toast(
+        ok ? 'ok' : 'info',
+        ok ? 'Read key generated and copied' : 'Read key generated',
+        'Run setReadKey("<the key>") in Apps Script, then Connect.',
+      );
+      return;
+    }
+    case 'gen-pin': {
+      const pin = randomKey(32);
+      const input = document.querySelector('form[data-form="connect"] input[name="pin"]');
+      if (input) input.value = pin;
+      const ok = await copyText(pin);
+      toast(
+        ok ? 'ok' : 'info',
+        ok ? 'PIN generated and copied' : 'PIN generated',
+        'Run setPin("<the pin>") in Apps Script, then Connect.',
+      );
+      return;
+    }
     default:
       return;
   }
@@ -486,6 +583,11 @@ document.addEventListener('change', (event) => {
   const act = el.dataset.act;
 
   if (act === 'raid-field') {
+    if (state.readOnly) {
+      blockReadOnly();
+      render();
+      return;
+    }
     const raid = state.data.raids.find((r) => r.id === el.dataset.id);
     if (!raid) return;
     const field = el.dataset.field;
@@ -495,6 +597,11 @@ document.addEventListener('change', (event) => {
   }
 
   if (act === 'player-field') {
+    if (state.readOnly) {
+      blockReadOnly();
+      render();
+      return;
+    }
     updatePlayer(el.dataset.id, { [el.dataset.field]: el.value });
     return;
   }
@@ -532,9 +639,15 @@ document.addEventListener('submit', async (event) => {
   const kind = form.dataset.form;
   const data = new FormData(form);
 
+  if (state.readOnly && WRITE_FORMS.has(kind)) {
+    blockReadOnly();
+    return;
+  }
+
   if (kind === 'connect') {
     const endpoint = String(data.get('endpoint') || '').trim();
     const pin = String(data.get('pin') || '').trim();
+    const readKey = String(data.get('readKey') || '').trim();
     if (!endpoint) {
       toast('error', 'Paste the Apps Script /exec URL first');
       return;
@@ -544,7 +657,7 @@ document.addEventListener('submit', async (event) => {
     submit.disabled = true;
     submit.innerHTML = `${ico('refresh', 15)} Connecting…`;
     try {
-      await connect(endpoint, pin);
+      await connect(endpoint, pin, readKey);
       toast('ok', 'Connected to the sheet');
     } catch (error) {
       toast('error', 'Connection failed', error.message);
@@ -626,6 +739,15 @@ onNotice(({ kind, message, detail }) => toast(kind, message, detail));
 subscribe(render);
 
 /* ------------------------------------------------------------------ boot */
+
+const invite = consumeInviteHash();
+if (invite) {
+  toast(
+    'info',
+    invite.readOnly ? 'Member link applied — read-only' : 'Editor link applied',
+    'Connecting to the shared sheet…',
+  );
+}
 
 setRoute(weekFromHash());
 init().catch((error) => {

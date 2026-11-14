@@ -17,6 +17,7 @@ const WEEK_KEY = 'loandom.week.v1';
 export const defaultSettings = {
   endpoint: '',
   pin: '',
+  readKey: '',
   goldMode: 'run',
   resetDay: 3,
   resetHour: 6,
@@ -44,6 +45,7 @@ export const state = {
   week: initialWeek,
   route: 'board',
   ready: false,
+  readOnly: false,
   settings,
   sync: { state: 'idle', revision: 0, at: null, error: '', pending: 0 },
 };
@@ -105,7 +107,7 @@ async function loadLocal({ reset = false } = {}) {
 async function loadRemote({ force = false } = {}) {
   if (!remoteAdapter) return false;
   try {
-    const res = await remoteAdapter.load(force ? null : state.sync.revision);
+    const res = await remoteAdapter.load(force ? null : state.sync.revision, settings.readKey);
     if (res.unchanged) {
       state.sync = { ...state.sync, state: 'ok', at: isoNow(), error: '' };
       return false;
@@ -130,6 +132,8 @@ export async function init() {
     try {
       remoteAdapter = createRemote(settings.endpoint);
       state.status = 'remote';
+      const health = await remoteAdapter.health();
+      state.readOnly = Boolean(health.pinRequired) && !settings.pin;
       await loadRemote({ force: true });
     } catch (error) {
       remoteAdapter = null;
@@ -483,21 +487,33 @@ export function updatePlayer(id, patch) {
 
 /* -------------------------------------------------------------- connection */
 
-export async function connect(endpoint, pin) {
+export async function connect(endpoint, pin, readKey = '') {
   const candidate = createRemote(endpoint);
   const health = await candidate.health();
   if (health && health.ok === false) {
     throw new ApiError(health.message || 'The endpoint is not healthy.', health.code || 'REMOTE');
   }
 
+  // Probe before committing: a wrong read key must not replace a working setup.
+  const snapshot = await candidate.load(null, String(readKey || '').trim());
   const backup = model.cloneData(state.data);
+
   remoteAdapter = candidate;
   settings.endpoint = String(endpoint).trim();
   settings.pin = String(pin || '');
+  settings.readKey = String(readKey || '').trim();
   saveSettings();
   state.status = 'remote';
+  state.readOnly = Boolean(health.pinRequired) && !settings.pin;
   queue = [];
-  await loadRemote({ force: true });
+  state.data = model.normalizeData(snapshot.data || snapshot);
+  state.sync = {
+    state: 'ok',
+    revision: snapshot.revision ?? 0,
+    at: snapshot.serverTime || isoNow(),
+    error: '',
+    pending: 0,
+  };
 
   // First connection to a blank sheet: seed it with what is on screen so the
   // user does not lose the demo/tracker they just built.
@@ -522,10 +538,12 @@ export function disconnect() {
   localAdapter.save(state.data);
   settings.endpoint = '';
   settings.pin = '';
+  settings.readKey = '';
   saveSettings();
   remoteAdapter = null;
   queue = [];
   state.status = 'demo';
+  state.readOnly = false;
   state.sync = { ...state.sync, state: 'ok', error: '' };
   emit();
 }
@@ -576,7 +594,51 @@ export function importData(raw) {
   emit();
 }
 
-/* ----------------------------------------------------------------- export */
+/* ------------------------------------------------------------------ invites
+   A link that configures the app in one click. It carries the endpoint, the
+   read key, and (optionally) the write PIN, so it is a secret: share it only
+   with your party, and rotate the keys if it leaks. */
+
+const b64url = (text) =>
+  btoa(unescape(encodeURIComponent(text))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+function unb64url(token) {
+  const padded = token.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (token.length % 4)) % 4);
+  return decodeURIComponent(escape(atob(padded)));
+}
+
+export function buildInvite(includePin = false) {
+  if (!settings.endpoint) return '';
+  const payload = {
+    v: 1,
+    e: settings.endpoint,
+    k: settings.readKey || '',
+    p: includePin ? settings.pin || '' : '',
+  };
+  return `${location.origin}${location.pathname}#connect=${b64url(JSON.stringify(payload))}`;
+}
+
+/** Read an invite from the URL, persist it, and clean the address bar. */
+export function consumeInviteHash() {
+  const hash = location.hash || '';
+  if (!hash.startsWith('#connect=')) return null;
+  const token = hash.slice('#connect='.length);
+  try {
+    const payload = JSON.parse(unb64url(token));
+    if (!payload || !payload.e) return null;
+    history.replaceState(null, '', location.pathname + location.search);
+    settings.endpoint = String(payload.e);
+    settings.readKey = String(payload.k || '');
+    settings.pin = String(payload.p || '');
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    return { endpoint: settings.endpoint, readOnly: !settings.pin };
+  } catch {
+    history.replaceState(null, '', location.pathname + location.search);
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ export */
 
 export function exportPayload() {
   return {

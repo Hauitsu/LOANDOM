@@ -136,6 +136,7 @@ svg.i { flex: none; display: inline-block; vertical-align: -2px; }
 .sync-pill.is-on { color: var(--green); border-color: rgba(61, 220, 151, 0.28); background: rgba(61, 220, 151, 0.07); }
 .sync-pill.is-demo { color: var(--gold); border-color: rgba(232, 184, 75, 0.3); background: rgba(232, 184, 75, 0.07); }
 .sync-pill.is-saving { color: var(--blue); border-color: rgba(90, 169, 248, 0.3); background: rgba(90, 169, 248, 0.07); }
+.sync-pill.is-readonly { color: var(--blue); border-color: rgba(90, 169, 248, 0.3); background: rgba(90, 169, 248, 0.07); }
 .sync-pill.is-error { color: var(--red); border-color: rgba(240, 85, 79, 0.35); background: rgba(240, 85, 79, 0.08); }
 
 /* ----------------------------------------------------------------- totals */
@@ -199,6 +200,11 @@ svg.i { flex: none; display: inline-block; vertical-align: -2px; }
 .banner-icon { color: var(--gold); display: grid; place-items: center; }
 .banner strong { color: var(--text); }
 .banner .btn { margin-left: auto; }
+.banner-readonly {
+  border-color: rgba(90, 169, 248, 0.28);
+  background: linear-gradient(90deg, rgba(90, 169, 248, 0.10), rgba(168, 85, 247, 0.04));
+}
+.banner-readonly .banner-icon { color: var(--blue); }
 
 /* ---------------------------------------------------------------- buttons */
 
@@ -277,6 +283,22 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--gold); }
 .check-field { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
 .inline-fields { display: flex; gap: 10px; }
 .inline-fields .field { width: 110px; }
+
+.input-with-action { display: flex; gap: 6px; }
+.input-with-action input { flex: 1; min-width: 0; }
+.input-with-action .btn { height: 36px; flex: none; }
+
+.access-block {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 13px 15px; border-top: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(61, 220, 151, 0.05), transparent);
+}
+.access-head { display: flex; align-items: center; gap: 8px; }
+.access-head h3 { font-size: 12.5px; margin-right: auto; display: flex; align-items: center; gap: 6px; }
+.access-head h3 svg { color: var(--green); }
+.access-block p { font-size: 11.5px; max-width: 72ch; }
+.inline-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tiny-note { color: #6f7a90; font-size: 10.5px; }
 
 /* ----------------------------------------------------------------- chips */
 

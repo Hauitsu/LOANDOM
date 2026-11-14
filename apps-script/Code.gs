@@ -16,13 +16,14 @@
  *      Copy the /exec URL into the site (Settings -> Google Sheet).
  *
  * ENDPOINTS
- *   GET  ?op=health                 -> status, revision, whether a PIN is needed
- *   GET  ?op=snapshot[&rev=N]       -> full data, or {unchanged:true}
- *   POST {op:'mutate', pin, ops}    -> batched writes, returns new revision
+ *   GET  ?op=health                     -> status, revision, key/PIN requirements
+ *   GET  ?op=snapshot[&key=K][&rev=N]   -> full data, or {unchanged:true}
+ *   POST {op:'snapshot', key, rev}      -> same, without putting the key in a URL
+ *   POST {op:'mutate', pin, ops}        -> batched writes, returns new revision
  *
- * All responses are JSON. Writes need the PIN when PIN is set in Script
- * Properties. Reads are public (the sheet is your data — keep it private if
- * that matters to you).
+ * Two independent secrets, both optional but recommended:
+ *   READ_KEY (setReadKey) -> required for reads
+ *   PIN      (setPin)     -> required for writes
  */
 
 var APP = 'loandom';
@@ -140,14 +141,40 @@ function writeConfig_(sheet, key, value) {
   sheet.appendRow([key, value]);
 }
 
-/** Optional write protection: setPin('1234'). */
+/** Optional write protection: setPin('<long random string>'). */
 function setPin(pin) {
   PropertiesService.getScriptProperties().setProperty('PIN', String(pin || ''));
-  ss_().toast(pin ? 'PIN set — writes now require it.' : 'PIN cleared.', 'LOANDOM', 6);
+  ss_().toast(pin ? 'PIN set - writes now require it.' : 'PIN cleared.', 'LOANDOM', 6);
 }
 
 function clearPin() {
   PropertiesService.getScriptProperties().deleteProperty('PIN');
+}
+
+/**
+ * Optional read protection: setReadKey('<long random string>').
+ * When set, snapshots require the key. Share it with your party, not publicly.
+ */
+function setReadKey(key) {
+  var clean = String(key || '').trim();
+  if (clean && clean.length < 16) throw new Error('Use at least 16 characters, ideally 32 or more.');
+  PropertiesService.getScriptProperties().setProperty('READ_KEY', clean);
+  ss_().toast(clean ? 'Read key set - snapshots now require it.' : 'Read key cleared.', 'LOANDOM', 6);
+}
+
+function clearReadKey() {
+  PropertiesService.getScriptProperties().deleteProperty('READ_KEY');
+}
+
+function checkReadAccess_(key) {
+  var required = PropertiesService.getScriptProperties().getProperty('READ_KEY');
+  if (!required) return { ok: true };
+  if (String(key || '') === String(required)) return { ok: true };
+  return {
+    ok: false,
+    code: 'BAD_KEY',
+    message: 'A valid read key is required. Add it in the app: Settings > Google Sheet > Read key.',
+  };
 }
 
 /** Quick sanity check from the editor. */
@@ -161,21 +188,15 @@ function doGet(e) {
   var params = (e && e.parameter) || {};
   try {
     if (params.op === 'health' || params.op === 'ping') return json_(health_());
-    var snapshot = snapshot_(params.rev);
-    return json_(snapshot);
+    var guard = checkReadAccess_(params.key);
+    if (!guard.ok) return json_(guard);
+    return json_(snapshot_(params.rev));
   } catch (error) {
     return json_({ ok: false, code: 'SERVER_ERROR', message: String(error && error.message || error) });
   }
 }
 
 function doPost(e) {
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(25000);
-  } catch (lockError) {
-    return json_({ ok: false, code: 'BUSY', message: 'The sheet is busy, try again in a second.' });
-  }
-
   try {
     var body = {};
     if (e && e.postData && e.postData.contents) {
@@ -186,6 +207,14 @@ function doPost(e) {
 
     var op = body.op || 'mutate';
     if (op === 'health') return json_(health_());
+
+    // Reads can come through POST too, so the key never has to sit in a URL.
+    if (op === 'snapshot') {
+      var readGuard = checkReadAccess_(body.key);
+      if (!readGuard.ok) return json_(readGuard);
+      return json_(snapshot_(body.rev));
+    }
+
     if (op !== 'mutate') {
       return json_({ ok: false, code: 'UNKNOWN_OP', message: 'Unknown operation: ' + op });
     }
@@ -198,23 +227,32 @@ function doPost(e) {
       return json_({ ok: false, code: 'NO_OPS', message: 'No operations were sent.' });
     }
 
-    var result = applyOps_(ops);
-    return json_({
-      ok: true,
-      revision: bumpRevision_(),
-      applied: result.applied,
-      created: result.created,
-      changed: true,
-      serverTime: new Date().toISOString(),
-    });
+    var lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(25000);
+    } catch (lockError) {
+      return json_({ ok: false, code: 'BUSY', message: 'The sheet is busy, try again in a second.' });
+    }
+
+    try {
+      var result = applyOps_(ops);
+      return json_({
+        ok: true,
+        revision: bumpRevision_(),
+        applied: result.applied,
+        created: result.created,
+        changed: true,
+        serverTime: new Date().toISOString(),
+      });
+    } finally {
+      lock.releaseLock();
+    }
   } catch (error) {
     return json_({
       ok: false,
       code: 'WRITE_FAILED',
       message: String(error && error.message || error),
     });
-  } finally {
-    lock.releaseLock();
   }
 }
 
@@ -243,6 +281,7 @@ function health_() {
     version: APP_VERSION,
     revision: props.getProperty('revision') || '0',
     pinRequired: Boolean(props.getProperty('PIN')),
+    readKeyRequired: Boolean(props.getProperty('READ_KEY')),
     readOnly: props.getProperty('READ_ONLY') === 'true',
     spreadsheet: ss ? ss.getName() : '',
     timezone: ss ? ss.getSpreadsheetTimeZone() : '',

@@ -153,6 +153,18 @@ function demoTip(state) {
     </div>`;
 }
 
+function readOnlyTip() {
+  return `
+    <div class="banner banner-readonly">
+      <span class="banner-icon">${ico('key', 16)}</span>
+      <div>
+        <strong>Read-only access.</strong> You can browse every week and every total.
+        <span class="muted">Ticking runs, editing characters or adding gold needs the editor link from the sheet owner.</span>
+      </div>
+      <button class="btn small" data-act="goto" data-route="settings">${ico('settings', 14)} Access</button>
+    </div>`;
+}
+
 export function renderBoard(state, stats) {
   const charMap = new Map(state.data.characters.map((c) => [c.id, c]));
   const cleared = stats.raidBlocks.reduce((acc, b) => acc + b.clearedRuns, 0);
@@ -172,6 +184,7 @@ export function renderBoard(state, stats) {
   }
 
   return `
+    ${state.status === 'remote' && state.readOnly ? readOnlyTip() : ''}
     ${state.status === 'demo' ? demoTip(state) : ''}
     <div class="view-head">
       <div>

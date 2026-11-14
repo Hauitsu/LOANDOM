@@ -243,6 +243,21 @@ check('write with pin accepted', res.ok === true, JSON.stringify(res));
 snap = get({ op: 'snapshot' });
 check('ledger deleted', snap.data.ledger.length === 0);
 
+console.log('read key protection');
+call('setReadKey', 'k'.repeat(32));
+health = get({ op: 'health' });
+check('readKeyRequired true', health.readKeyRequired === true);
+let denied = get({ op: 'snapshot' });
+check('snapshot without key rejected', denied.ok === false && denied.code === 'BAD_KEY', JSON.stringify(denied));
+denied = get({ op: 'snapshot', key: 'wrong' });
+check('wrong key rejected', denied.ok === false && denied.code === 'BAD_KEY');
+let allowed = get({ op: 'snapshot', key: 'k'.repeat(32) });
+check('snapshot with key allowed', allowed.ok === true && Array.isArray(allowed.data.raids));
+const postSnap = post({ op: 'snapshot', key: 'k'.repeat(32) });
+check('POST snapshot with key allowed', postSnap.ok === true && Array.isArray(postSnap.data.players));
+call('clearReadKey');
+check('clearReadKey reopens reads', get({ op: 'snapshot' }).ok === true);
+
 console.log('player.upsert + raid.upsert');
 res = post({ op: 'mutate', pin: '1234', ops: [
   { type: 'player.upsert', player: { id: 'p2', name: 'OIS', tag: 'OIS', color: '#f59e0b', order: 20 } },

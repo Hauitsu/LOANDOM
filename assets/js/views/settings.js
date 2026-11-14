@@ -30,12 +30,23 @@ function connectionPanel(state) {
           <small>Deploy the script in <a href="apps-script/Code.gs" download>apps-script/Code.gs</a> as a Web App: execute as <em>Me</em>, access <em>Anyone</em>. <a href="SETUP.md">Step-by-step guide</a>.</small>
         </label>
         <label class="field">
-          <span>PIN</span>
-          <input name="pin" type="password" value="${attr(state.settings.pin)}" placeholder="optional, set inside Apps Script" spellcheck="false" />
-          <small>Required for writes if you set a PIN in the script.</small>
+          <span>Read key</span>
+          <div class="input-with-action">
+            <input name="readKey" type="password" value="${attr(state.settings.readKey)}" placeholder="set with setReadKey()" spellcheck="false" />
+            <button class="btn small ghost" type="button" data-act="gen-readkey">${ico('key', 14)} Generate</button>
+          </div>
+          <small>Gates reads. Without one, anyone with the /exec URL can read the sheet.</small>
         </label>
-        <div class="field field-actions">
-          <button class="btn primary" type="submit">${connected ? ico('refresh', 15) + ' Reconnect' : ico('link', 15) + ' Connect'}</button>
+        <label class="field">
+          <span>PIN</span>
+          <div class="input-with-action">
+            <input name="pin" type="password" value="${attr(state.settings.pin)}" placeholder="optional, set inside Apps Script" spellcheck="false" />
+            <button class="btn small ghost" type="button" data-act="gen-pin">${ico('key', 14)} Generate</button>
+          </div>
+          <small>Gates writes. Use 32+ characters.</small>
+        </label>
+        <div class="field field-actions span2">
+          <button class="btn primary" type="submit" ${connected ? '' : ''}>${connected ? ico('refresh', 15) + ' Reconnect' : ico('link', 15) + ' Connect'}</button>
           ${connected ? `<button class="btn ghost" type="button" data-act="pull">${ico('download', 14)} Pull</button>` : ''}
           ${connected ? `<button class="btn ghost danger-text" type="button" data-act="disconnect">${ico('logout', 14)} Disconnect</button>` : ''}
         </div>
@@ -47,13 +58,39 @@ function connectionPanel(state) {
           <li>Create a Google Sheet. Open <strong>Extensions → Apps Script</strong>.</li>
           <li>Paste <code>apps-script/Code.gs</code> and <code>apps-script/appsscript.json</code> from this repo (the manifest goes in <em>Project Settings</em>).</li>
           <li>Run <code>setup()</code> once and approve the permissions. It creates the tabs.</li>
-          <li>Optional: run <code>setPin('1234')</code> so only people with the PIN can write.</li>
+          <li>Optional but recommended: run a helper that calls <code>setPin('&lt;32+ chars&gt;')</code> (writes) and <code>setReadKey('&lt;32+ chars&gt;')</code> (reads).</li>
           <li><strong>Deploy → New deployment → Web app</strong>: execute as <em>Me</em>, access <em>Anyone</em>. Copy the <code>/exec</code> URL here.</li>
           <li>Click <strong>Push data to sheet</strong> below to seed it with what you see now, then edit from either side.</li>
         </ol>
         <p class="muted">Full walkthrough: <a href="SETUP.md">SETUP.md</a> · files: <a href="apps-script/Code.gs" download>Code.gs</a>, <a href="apps-script/appsscript.json" download>appsscript.json</a></p>
       </details>
+
+      ${connected ? accessBlock(state) : ''}
     </section>`;
+}
+
+function accessBlock(state) {
+  const hasKey = Boolean(state.settings.readKey);
+  return `
+    <div class="access-block">
+      <div class="access-head">
+        <h3>${ico('users', 15)} Party access</h3>
+        <span class="pill ${hasKey ? 'is-on' : 'is-demo'}"><span class="pill-dot"></span>${hasKey ? 'Read key on' : 'No read key'}</span>
+      </div>
+      <p class="muted">
+        ${
+          hasKey
+            ? 'Every link below configures the app in one click. Only people holding one can read your sheet; the public site otherwise shows demo data.'
+            : 'Without a read key, anyone with the endpoint URL can read the sheet. Set one with setReadKey() in Apps Script first.'
+        }
+      </p>
+      <div class="inline-actions">
+        <button class="btn small" data-act="copy-invite" data-mode="read">${ico('copy', 14)} Copy member link</button>
+        <button class="btn small ghost" data-act="copy-invite" data-mode="edit">${ico('copy', 14)} Copy editor link (PIN)</button>
+        <button class="btn small ghost" data-act="gen-readkey">${ico('key', 14)} Generate read key</button>
+      </div>
+      <p class="tiny-note">Member link = read-only. Editor link includes the PIN, so anyone holding it can change runs. Share both privately.</p>
+    </div>`;
 }
 
 function syncPanel(state) {

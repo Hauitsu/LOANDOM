@@ -54,11 +54,11 @@ You should see a toast: *“LOANDOM sheet is ready.”*
 
 ## 4. Optional (but recommended): a PIN for writes
 
-Reads are public (anyone with the `/exec` URL can read). Writes require a PIN only if you set one.
+Reads are gated by a **read key** (see §8). Writes are gated by a PIN. Both are optional, but if the endpoint URL is public, set them.
 
-Use a **long random string**, not a 4-digit code — the endpoint is public, so a short PIN is guessable.
+Use a **long random string** for each, not a 4-digit code — the endpoint is public, so a short PIN is guessable.
 
-Generate one:
+The app's **Settings → Google Sheet** has a **Generate** button next to both fields; it copies the value for you. Or generate one manually:
 
 ```powershell
 -join ((48..57)+(97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
@@ -82,7 +82,7 @@ The web app runs **as you**, so it can read a fully private sheet. Sheet sharing
 
 - **Share → General access → Restricted** (only you). Keeps it out of Drive search and link sharing.
 - Do not use "Anyone with the link" — that exposes the raw data independently of the app.
-- The `/exec` URL is the real access token for reads. Keep it out of the repo, README, screenshots and issues.
+- With a **read key** set (§8), the `/exec` URL alone returns `BAD_KEY`; the key is the real read credential. Keep both private, and don't commit them.
 
 ---
 
@@ -142,6 +142,39 @@ In the app:
 
 ---
 
+## 8. Give access to your party
+
+The site stays public; the data is gated by two independent secrets:
+
+| Secret | Script helper | Gates | Share with |
+| --- | --- | --- | --- |
+| **Read key** | `setReadKey('<32+ chars>')` | reading the sheet | everyone in the party |
+| **PIN** | `setPin('<32+ chars>')` | writing to the sheet | editors only |
+
+The app can generate both for you: **Settings → Google Sheet**, then **Generate** next to **Read key** or **PIN**. Each button copies the value so you can paste it into the matching Apps Script helper.
+
+1. Update the script (it must be the version that supports `setReadKey`), then **Deploy → Manage deployments → edit → Version: New version → Deploy**. An old deployment ignores the read key.
+2. Run helpers that call `setReadKey('...')` and `setPin('...')` once.
+3. In the app: **Settings → Read key** + **PIN** → **Connect**.
+4. After connecting, Settings shows **Party access**:
+   - **Copy member link** — endpoint + read key, no PIN → **read-only**.
+   - **Copy editor link (PIN)** — includes the PIN → can change runs.
+5. Send the relevant link privately (DM, not a public channel). Opening it configures the app and cleans the address bar.
+
+What each person sees:
+
+| They have | They see |
+| --- | --- |
+| Nothing (just the site URL) | demo data in their browser, no sheet |
+| Member link | your real data, `Read-only` pill, no edits |
+| Editor link | your real data + editing |
+
+Rotation: run `setReadKey('<new>')` / `setPin('<new>')`, paste the new values into your own Settings, and re-share the links. Old links stop working immediately.
+
+> The link contains the key (and optionally the PIN), so treat it as a password. Don't post it in the repo, an issue, or a public Discord.
+
+---
+
 ## Editing the sheet by hand
 
 The sheet stays a first-class editor:
@@ -174,8 +207,9 @@ Apps Script quotas (free): 20,000 URL fetches/day, 90 min/day runtime. A persona
 
 ## Security notes
 
-- **Reads are public** to anyone who has the deployment URL and the revision-less snapshot endpoint. Don't put anything private in the sheet.
-- The PIN only gates writes.
-- The deployment URL is not a secret credential; it only reaches this one spreadsheet.
+- **Reads are open by default** to anyone who has the deployment URL. Set a read key (§8) to require it; then the URL alone returns `BAD_KEY`.
+- The PIN gates writes; the read key gates reads. They are independent, so a member link can be read-only.
+- Invite links contain the read key (and optionally the PIN). Treat them as passwords and share them privately.
+- Keys are stored in plain text in each browser's `localStorage` — that is the trade-off for not having accounts. Rotate them if a device is lost.
 - The script can only touch the spreadsheet it is attached to.
-- If you stop using it, delete the deployment (Deploy → Manage deployments → Archive) and the script keeps your data safe in the sheet.
+- If you stop using it, archive the deployment (Deploy → Manage deployments → Archive) and the data stays in the sheet.

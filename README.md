@@ -50,6 +50,7 @@ No database service, no VPS, no deploy secrets. The site is three folders of fil
 - Polls the sheet every 20 s and on tab focus; **Sync now** forces it.
 - Edit the spreadsheet by hand and the app picks it up. Rows typed by hand get IDs healed on the next read.
 - Import/export JSON snapshots; push the whole local state into a blank sheet in one click.
+- **Read key + invite links**: gate reads with a key, then hand out a **member link** (read-only) or an **editor link** (includes the PIN). No accounts, no repo changes.
 
 ---
 
@@ -119,8 +120,8 @@ GitHub Pages serves files only; it cannot receive a form post or hold a secret. 
 - The script runs **inside your Google account**, with full access to the sheet.
 - Deployed as a web app with `access: Anyone`, it answers `GET`/`POST` as JSON — a tiny API with no infrastructure.
 - The site POSTs with `Content-Type: text/plain` so the browser skips the CORS preflight, which Apps Script cannot answer.
-- Writes are guarded by a PIN stored in Script Properties. Reads are public, so anyone with the `/exec` URL can read the sheet.
-- **Sheet sharing is not an access control for the API.** The script runs as the owner, so it can read a private sheet. Set the sheet to *Restricted* to stop Drive-level sharing, but treat the deployment URL as the real read secret. See [SETUP.md § Security](SETUP.md#4b-lock-down-the-sheet) for the hardening checklist (long PIN, URL hygiene, rotation).
+- Writes are guarded by a PIN stored in Script Properties. Reads are public unless you set a **read key** (`setReadKey`), in which case the URL alone returns nothing.
+- **Sheet sharing is not an access control for the API.** The script runs as the owner, so it can read a private sheet. Set the sheet to *Restricted* to stop Drive-level sharing, and treat the deployment URL + read key as the real read credential. See [SETUP.md § Security](SETUP.md#security-notes) for the hardening checklist (long keys, URL hygiene, rotation).
 - Version history, permissions and backups are Google's problem, not yours.
 
 Cost: 0. Cold start: a second or two on the first request after idle.
@@ -192,7 +193,7 @@ Payout values are editable in **Settings → Raids & payouts** because patches m
 
 - Sync is **last-write-wins per row**, not real-time collaboration.
 - Polling is 20 s, not a websocket. There is no server to hold one.
-- The PIN protects writes, not reads. It is not encryption.
+- The PIN and read key are stored in plain text in each browser's `localStorage`. They gate the API, not individual accounts.
 - No PvP/auction tracking, no honing calculator, no market prices. This is a gold ledger.
 
 ---
