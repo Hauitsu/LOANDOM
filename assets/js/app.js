@@ -235,7 +235,7 @@ function openCharacterModal(charId) {
         <datalist id="class-options">
           ${CLASSES.map((entry) => `<option value="${attr(entry.name)}"></option>`).join('')}
         </datalist>
-        <label class="field"><span>Item level</span><input name="ilvl" type="number" value="${attr(character.ilvl || '')}" placeholder="1750" min="1" max="2000" /></label>
+        <label class="field"><span>Item level</span><input name="ilvl" type="number" step="any" inputmode="decimal" value="${attr(character.ilvl || '')}" placeholder="1750.83" min="1" max="2000" /></label>
         <label class="field">
           <span>Owner</span>
           <select name="playerId">
