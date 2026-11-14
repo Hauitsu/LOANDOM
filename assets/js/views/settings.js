@@ -27,7 +27,7 @@ function connectionPanel(state) {
         <label class="field span2">
           <span>Apps Script Web App URL</span>
           <input name="endpoint" value="${attr(state.settings.endpoint)}" placeholder="https://script.google.com/macros/s/AKfy…/exec" spellcheck="false" />
-          <small>Deploy the script in <code>apps-script/Code.gs</code> as a Web App: execute as <em>Me</em>, access <em>Anyone</em>.</small>
+          <small>Deploy the script in <a href="apps-script/Code.gs" download>apps-script/Code.gs</a> as a Web App: execute as <em>Me</em>, access <em>Anyone</em>. <a href="SETUP.md">Step-by-step guide</a>.</small>
         </label>
         <label class="field">
           <span>PIN</span>
@@ -51,7 +51,7 @@ function connectionPanel(state) {
           <li><strong>Deploy → New deployment → Web app</strong>: execute as <em>Me</em>, access <em>Anyone</em>. Copy the <code>/exec</code> URL here.</li>
           <li>Click <strong>Push data to sheet</strong> below to seed it with what you see now, then edit from either side.</li>
         </ol>
-        <p class="muted">Full walkthrough: <code>SETUP.md</code> in the repository.</p>
+        <p class="muted">Full walkthrough: <a href="SETUP.md">SETUP.md</a> · files: <a href="apps-script/Code.gs" download>Code.gs</a>, <a href="apps-script/appsscript.json" download>appsscript.json</a></p>
       </details>
     </section>`;
 }

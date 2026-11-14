@@ -92,7 +92,7 @@ https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxxxxxx/exec
 
 ## 6. Connect the app
 
-1. Open your GitHub Pages site.
+1. Open your site (this repository is published at <https://hauitsu.github.io/LOANDOM/>).
 2. **Settings → Google Sheet**.
 3. Paste the `/exec` URL and the PIN (if you set one).
 4. Click **Connect**.
