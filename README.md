@@ -1,5 +1,7 @@
 # LOANDOM
 
+**Live:** https://hauitsu.github.io/LOANDOM/ — demo data until you connect your sheet.
+
 A Lost Ark **weekly raid gold tracker** with a GUI that is actually pleasant to use — and a database that is just a Google Sheet.
 
 - **Host:** GitHub Pages (static files, free, no server, no domain)
@@ -65,6 +67,9 @@ python -m http.server 8080
 Open the URL. The app loads a faithful copy of the original LOANDOM sheet (Belgardin NM/HM, Kazeros HM, Serca HM — 526,000 unbound + 231,000 bound) into `localStorage`. Everything is editable; nothing leaves the browser.
 
 ### 2. Deploy to GitHub Pages
+
+This repository is already published from `main` / root at
+<https://hauitsu.github.io/LOANDOM/>. For your own fork:
 
 ```bash
 git remote add origin https://github.com/<you>/<repo>.git
