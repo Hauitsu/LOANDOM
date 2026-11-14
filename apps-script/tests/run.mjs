@@ -267,6 +267,17 @@ let pres = post({
 check('portrait upsert accepted', pres.ok === true && pres.applied === 1, JSON.stringify(pres));
 let pitems = post({ op: 'portraits' });
 check('portrait list returns it', pitems.ok === true && pitems.items.length === 1 && pitems.items[0].key === 'c1');
+const bigPortrait = 'B'.repeat(90000);
+pres = post({
+  pin: '1234',
+  op: 'mutate',
+  ops: [{ type: 'portrait.upsert', portrait: { key: 'c2', mime: 'image/webp', data: bigPortrait } }],
+});
+check('large portrait accepted', pres.ok === true && pres.applied === 1, JSON.stringify(pres));
+pitems = post({ op: 'portraits' });
+const chunked = pitems.items.find((item) => item.key === 'c2');
+check('chunked portrait round-trips', Boolean(chunked) && chunked.data.length === 90000 && chunked.data[0] === 'B');
+post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.delete', key: 'c2' }] });
 let snap3 = get({ op: 'snapshot' });
 check('snapshot excludes portraits', snap3.data.portraits === undefined);
 call('setReadKey', 'k'.repeat(32));

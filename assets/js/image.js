@@ -1,10 +1,9 @@
-/* Turn a pasted portrait into a data URL that fits in a sheet cell,
-   without cropping: the original aspect ratio is preserved and the image is
-   never scaled below 25% of its original size unless storage forces it. */
+/* Turn a pasted portrait into a data URL that fits in a sheet cell.
+   Aspect ratio is preserved and the image is stored at 70% of its original
+   dimensions; only quality is lowered when the sheet's chunk budget is hit. */
 
-const MIN_SCALE = 0.25;
-const MAX_SIDE = 384;
-const MAX_CHARS = 45000;
+const MIN_SCALE = 0.7;
+const MAX_CHARS = 460000;
 
 async function loadBitmap(blob) {
   if (typeof createImageBitmap === 'function') {
@@ -39,36 +38,27 @@ export async function toPortraitDataUrl(blob) {
   if (!ctx) throw new Error('This browser cannot process images.');
   ctx.imageSmoothingQuality = 'high';
 
-  const draw = (scale, quality) => {
-    const w = Math.max(1, Math.round(width * scale));
-    const h = Math.max(1, Math.round(height * scale));
-    canvas.width = w;
-    canvas.height = h;
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(bitmap, 0, 0, w, h);
+  const scale = MIN_SCALE;
+  const targetW = Math.max(1, Math.round(width * scale));
+  const targetH = Math.max(1, Math.round(height * scale));
+  canvas.width = targetW;
+  canvas.height = targetH;
+
+  const draw = (quality) => {
+    ctx.clearRect(0, 0, targetW, targetH);
+    ctx.drawImage(bitmap, 0, 0, targetW, targetH);
     const type = canvas.toDataURL('image/webp').startsWith('data:image/webp') ? 'image/webp' : 'image/jpeg';
     return canvas.toDataURL(type, quality);
   };
 
-  // Keep the aspect ratio. Start at 25% minimum, but cap very large images
-  // so a single sheet cell stays under the 50k character limit.
-  let scale = Math.min(1, MAX_SIDE / Math.max(width, height));
-  scale = Math.max(scale, MIN_SCALE);
-
   let quality = 0.86;
-  let url = draw(scale, quality);
-
-  while (url.length > MAX_CHARS && quality > 0.38) {
-    quality -= 0.1;
-    url = draw(scale, quality);
-  }
-  // Last resort for extremely large sources: shrink, still without cropping.
-  while (url.length > MAX_CHARS && scale > 0.12) {
-    scale *= 0.85;
-    url = draw(scale, Math.max(0.45, quality));
+  let url = draw(quality);
+  while (url.length > MAX_CHARS && quality > 0.35) {
+    quality -= 0.08;
+    url = draw(quality);
   }
   if (url.length > MAX_CHARS) {
-    throw new Error('Portrait is too large after compression. Try a smaller crop or a lower-resolution copy.');
+    throw new Error('Portrait is still too large at 70% size. Use a smaller source image.');
   }
   return url;
 }

@@ -32,7 +32,7 @@ No database service, no VPS, no deploy secrets. The site is three folders of fil
 
 **Roster**
 - Characters per owner with class and item level.
-- **Paste a portrait from the clipboard** (or pick a file) in the character modal — aspect ratio preserved, up to 384px on the long side and never below 25% of the original unless storage forces it. Stored in the `Portraits` tab, with a local fallback until the script is redeployed.
+- **Paste a portrait from the clipboard** (or pick a file) in the character modal — stored at **70% of the original size** with the aspect ratio intact, and chunked across cells because a single sheet cell caps at 50k characters. Stored in the `Portraits` tab, with a local fallback until the script is redeployed.
 - Portraits appear in the character modal, a hover tooltip, and the assignment picker on the board — never as a cropped square.
 - **Focus a single raid**: the expand button on any raid card (or `#/raid/<id>`) opens a full-width board for that raid, with larger rows and the same controls.
 - Class badges use a local class list (no external assets); set the class in the same modal.
@@ -110,7 +110,7 @@ Every tab is a plain table with a header row. The app tolerates hand edits and r
 | `Runs` | `id, week, raidId, index, cleared, claims, note, updatedAt` | one row per run |
 | `Assignments` | `id, runId, playerId, characterId, name, updatedAt` | one row per character in a run |
 | `Ledger` | `id, week, kind, amount, source, note, playerId, characterId, updatedAt` | manual gold |
-| `Portraits` | `key, mime, data, updatedAt` | pasted character images (base64, aspect-preserved, excluded from the main snapshot) |
+| `Portraits` | `key, mime, chunks, data…data12, updatedAt` | pasted character images (base64, 70% of original, chunked, excluded from the main snapshot) |
 
 A **week** is the ISO date of the Wednesday that opened it (`2026-11-11`). That is stable, sortable and readable inside a spreadsheet. Weekly reset is configurable (default Wednesday 06:00, browser local time).
 

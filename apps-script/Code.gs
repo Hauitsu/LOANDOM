@@ -37,7 +37,12 @@ var TABS = {
   Runs: ['id', 'week', 'raidId', 'index', 'cleared', 'claims', 'note', 'updatedAt'],
   Assignments: ['id', 'runId', 'playerId', 'characterId', 'name', 'updatedAt'],
   Ledger: ['id', 'week', 'kind', 'amount', 'source', 'note', 'playerId', 'characterId', 'updatedAt'],
-  Portraits: ['key', 'mime', 'data', 'updatedAt'],
+  Portraits: [
+    'key', 'mime', 'chunks',
+    'data', 'data2', 'data3', 'data4', 'data5', 'data6',
+    'data7', 'data8', 'data9', 'data10', 'data11', 'data12',
+    'updatedAt',
+  ],
 };
 
 var NUMERIC = {
@@ -46,6 +51,7 @@ var NUMERIC = {
   Characters: ['ilvl'],
   Runs: ['index', 'claims'],
   Ledger: ['amount'],
+  Portraits: ['chunks'],
 };
 
 var BOOLEAN = {
@@ -315,15 +321,29 @@ function bumpRevision_() {
 
 /* ================================================================ snapshot */
 
+var PORTRAIT_CHUNK_CHARS = 40000;
+var PORTRAIT_MAX_PARTS = 12;
+
+function portraitParts_(row) {
+  var parts = [];
+  for (var i = 0; i < PORTRAIT_MAX_PARTS; i++) {
+    var column = i === 0 ? 'data' : 'data' + (i + 1);
+    var value = row.obj[column];
+    if (value) parts.push(String(value));
+  }
+  return parts;
+}
+
 function portraits_() {
   var db = openDb_();
   var rows = db.Portraits ? db.Portraits.rows : [];
   var items = rows
     .map(function (row) {
+      var data = portraitParts_(row).join('');
       return {
         key: String(row.obj.key || ''),
         mime: String(row.obj.mime || 'image/webp'),
-        data: String(row.obj.data || ''),
+        data: data,
         updatedAt: String(row.obj.updatedAt || ''),
       };
     })
@@ -805,18 +825,26 @@ function deleteRaid_(db, id) {
   deleteRow_(db, 'Raids', id);
 }
 
-var PORTRAIT_MAX_CHARS = 45000;
-
 function upsertPortrait_(db, portrait) {
   if (!portrait || !portrait.key) return;
   var data = String(portrait.data || '');
   if (!data) return;
-  if (data.length > PORTRAIT_MAX_CHARS) {
-    throw new Error('Portrait is too large. Compress it below ~33 KB (the app does this automatically).');
+  if (data.length > PORTRAIT_CHUNK_CHARS * PORTRAIT_MAX_PARTS) {
+    throw new Error('Portrait is too large. Keep it under ~340 KB after compression.');
   }
   var mime = String(portrait.mime || 'image/webp');
   if (mime.indexOf('image/') !== 0) mime = 'image/webp';
-  var record = { key: String(portrait.key), mime: mime, data: data, updatedAt: now_() };
+
+  var record = { key: String(portrait.key), mime: mime, updatedAt: now_() };
+  var parts = 0;
+  for (var i = 0; i < PORTRAIT_MAX_PARTS; i++) {
+    var column = i === 0 ? 'data' : 'data' + (i + 1);
+    var chunk = data.slice(i * PORTRAIT_CHUNK_CHARS, (i + 1) * PORTRAIT_CHUNK_CHARS);
+    record[column] = chunk;
+    if (chunk) parts = i + 1;
+  }
+  record.chunks = parts;
+
   if (db.Portraits.byId[String(record.key)]) {
     updateRow_(db, 'Portraits', record.key, record);
   } else {
