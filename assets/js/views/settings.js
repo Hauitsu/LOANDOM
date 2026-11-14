@@ -70,26 +70,32 @@ function connectionPanel(state) {
 }
 
 function accessBlock(state) {
-  const hasKey = Boolean(state.settings.readKey);
+  const configured = Boolean(state.settings.readKey);
+  const enforced = Boolean(state.keyEnforced);
+  const tone = enforced ? 'is-on' : configured ? 'is-error' : 'is-demo';
+  const label = enforced ? 'Read key enforced' : configured ? 'Not enforced' : 'No read key';
+  const text = enforced
+    ? 'Only people holding a link below can read this sheet. The public site alone shows demo data.'
+    : configured
+      ? 'A read key is saved in this browser, but the script is not enforcing it. Run setReadKey("<the key>") in Apps Script and deploy a new version — until then the URL alone still reads the sheet.'
+      : 'No read key is set, so anyone with the endpoint URL can read the sheet. Generate one, set it with setReadKey(), and deploy a new version.';
+
   return `
     <div class="access-block">
       <div class="access-head">
         <h3>${ico('users', 15)} Party access</h3>
-        <span class="pill ${hasKey ? 'is-on' : 'is-demo'}"><span class="pill-dot"></span>${hasKey ? 'Read key on' : 'No read key'}</span>
+        <span class="pill ${tone}"><span class="pill-dot"></span>${label}</span>
       </div>
-      <p class="muted">
-        ${
-          hasKey
-            ? 'Every link below configures the app in one click. Only people holding one can read your sheet; the public site otherwise shows demo data.'
-            : 'Without a read key, anyone with the endpoint URL can read the sheet. Set one with setReadKey() in Apps Script first.'
-        }
-      </p>
+      <p class="muted">${text}</p>
       <div class="inline-actions">
         <button class="btn small" data-act="copy-invite" data-mode="read">${ico('copy', 14)} Copy member link</button>
         <button class="btn small ghost" data-act="copy-invite" data-mode="edit">${ico('copy', 14)} Copy editor link (PIN)</button>
         <button class="btn small ghost" data-act="gen-readkey">${ico('key', 14)} Generate read key</button>
       </div>
-      <p class="tiny-note">Member link = read-only. Editor link includes the PIN, so anyone holding it can change runs. Share both privately.</p>
+      <p class="tiny-note">
+        ${state.readOnly ? 'You are connected read-only — the editor link enables changes.' : 'You have editor access.'}
+        Member link = read-only. Editor link includes the PIN, so anyone holding it can change runs. Share both privately.
+      </p>
     </div>`;
 }
 

@@ -46,6 +46,7 @@ export const state = {
   route: 'board',
   ready: false,
   readOnly: false,
+  keyEnforced: false,
   settings,
   sync: { state: 'idle', revision: 0, at: null, error: '', pending: 0 },
 };
@@ -134,6 +135,10 @@ export async function init() {
       state.status = 'remote';
       const health = await remoteAdapter.health();
       state.readOnly = Boolean(health.pinRequired) && !settings.pin;
+      state.keyEnforced = Boolean(health.readKeyRequired);
+      if (!health.readKeyRequired && settings.readKey) {
+        notify('info', 'Read key not enforced', 'Run setReadKey("<the key>") in Apps Script and deploy a new version.');
+      }
       await loadRemote({ force: true });
     } catch (error) {
       remoteAdapter = null;
@@ -505,6 +510,10 @@ export async function connect(endpoint, pin, readKey = '') {
   saveSettings();
   state.status = 'remote';
   state.readOnly = Boolean(health.pinRequired) && !settings.pin;
+  state.keyEnforced = Boolean(health.readKeyRequired);
+  if (!health.readKeyRequired && settings.readKey) {
+    notify('info', 'Read key not enforced', 'Run setReadKey("<the key>") in Apps Script and deploy a new version.');
+  }
   queue = [];
   state.data = model.normalizeData(snapshot.data || snapshot);
   state.sync = {
@@ -544,6 +553,7 @@ export function disconnect() {
   queue = [];
   state.status = 'demo';
   state.readOnly = false;
+  state.keyEnforced = false;
   state.sync = { ...state.sync, state: 'ok', error: '' };
   emit();
 }
