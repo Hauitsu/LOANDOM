@@ -13,15 +13,28 @@ const DRIVE_SIZE = 2400;
 let cache = new Map(); // key -> { driveId } | { dataUrl }
 let source = 'none'; // 'remote' | 'local' | 'none'
 
-const driveUrl = (id, size) =>
+const originalUrl = (id) =>
+  `https://drive.usercontent.google.com/download?id=${encodeURIComponent(id)}&export=view`;
+
+const thumbUrl = (id, size) =>
   `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${size || DRIVE_SIZE}`;
 
 export function portraitFor(character, size) {
   if (!character) return '';
   const entry = cache.get(String(character.id)) || cache.get(slug(character.name));
   if (!entry) return '';
-  if (entry.driveId) return driveUrl(entry.driveId, size);
+  if (entry.driveId) {
+    // Small contexts (the assignment picker) use a thumbnail;
+    // tooltips and the modal ask Drive for the original bytes.
+    return size && size < 1000 ? thumbUrl(entry.driveId, size) : originalUrl(entry.driveId);
+  }
   return entry.dataUrl || '';
+}
+
+export function portraitFallbackFor(character, size) {
+  if (!character) return '';
+  const entry = cache.get(String(character.id)) || cache.get(slug(character.name));
+  return entry && entry.driveId ? thumbUrl(entry.driveId, size || DRIVE_SIZE) : '';
 }
 
 export function setPortrait(key, dataUrl) {

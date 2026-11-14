@@ -56,7 +56,7 @@ import { renderRoster } from './views/roster.js';
 import { renderSummary } from './views/summary.js';
 import { renderLedger } from './views/ledger.js';
 import { renderSettings } from './views/settings.js';
-import { portraitFor } from './portraits.js';
+import { portraitFor, portraitFallbackFor } from './portraits.js';
 import { classColor, classInfo, CLASSES } from './classes.js';
 import { classBadge } from './classbadge.js';
 import { readPortraitFile, displayWidthFor } from './image.js';
@@ -204,6 +204,17 @@ function render() {
 
 function sizePortrait(img) {
   if (!img) return;
+  const fallback = img.dataset.portraitFallback;
+  if (fallback) {
+    img.addEventListener(
+      'error',
+      () => {
+        delete img.dataset.portraitFallback;
+        img.src = fallback;
+      },
+      { once: true },
+    );
+  }
   const apply = () => {
     if (!img.naturalWidth) return;
     img.style.width = `${displayWidthFor(img.naturalWidth)}px`;
@@ -230,6 +241,7 @@ function openCharacterModal(charId) {
     .filter((r) => r.active !== false)
     .sort((a, b) => num(a.ilvl) - num(b.ilvl));
   const pic = portraitFor(character);
+  const picFallback = portraitFallbackFor(character);
   const tint = classColor(character.className);
 
   openModal({
@@ -239,7 +251,7 @@ function openCharacterModal(charId) {
     body: `
       <div class="portrait-edit">
         <div class="portrait-preview" style="--cc:${attr(tint)}" data-portrait-preview>
-          ${pic ? `<img src="${attr(pic)}" alt="" />` : `<span>${esc(character.name.slice(0, 2))}</span>`}
+          ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" />` : `<span>${esc(character.name.slice(0, 2))}</span>`}
         </div>
         <div class="portrait-side">
           <div class="portrait-actions">
@@ -469,10 +481,11 @@ function showCharTip(anchor, character) {
   }
   const player = state.data.players.find((p) => p.id === character.playerId);
   const pic = portraitFor(character);
+  const picFallback = portraitFallbackFor(character);
   const info = classInfo(character.className);
   charTip.innerHTML = `
     <div class="tip-media">
-      ${pic ? `<img src="${attr(pic)}" alt="" />` : classBadge(character.className, 64)}
+      ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" />` : classBadge(character.className, 64)}
     </div>
     <div class="tip-body">
       <strong>${esc(character.name)}</strong>
