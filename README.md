@@ -183,6 +183,8 @@ The demo reproduces the sheet exactly:
 
 Payout values are editable in **Settings → Raids & payouts** because patches move them. Defaults follow the September/October 2026 Western values (Dimensions Unbound + Arbiter of Death): Belgardin 50k/62k, Final Day Hard 48k, Serca Hard 44k.
 
+**Provenance:** raid item levels and payouts come from public tables and release notes. **Character item levels in the demo are invented placeholders** — the original screenshot does not contain them. They exist only so the eligibility checks have something to compare against; replace them in **Roster** with your real values. Gold totals do not depend on them.
+
 ---
 
 ## Limitations (on purpose)
