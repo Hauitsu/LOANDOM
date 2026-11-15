@@ -378,11 +378,13 @@ function openCharacterModal(charId) {
         toast('info', 'Portrait removed');
       });
 
-      modal.querySelector('[data-modal-save]').addEventListener('click', () => {
+      modal.querySelector('[data-modal-save]').addEventListener('click', async () => {
         const form = modal.querySelector('form');
         if (!form.reportValidity()) return;
         const data = new FormData(form);
-        updateCharacter(character.id, {
+        const saveBtn = modal.querySelector('[data-modal-save]');
+        saveBtn.disabled = true;
+        const result = updateCharacter(character.id, {
           name: String(data.get('name')).trim(),
           className: String(data.get('className')).trim(),
           ilvl: num(data.get('ilvl')),
@@ -390,7 +392,11 @@ function openCharacterModal(charId) {
           goldEarner: data.get('goldEarner') === 'on',
           active: data.get('active') === 'on',
         });
+        // Wait for the actual sheet write instead of claiming success up front.
+        const written = await result;
+        saveBtn.disabled = false;
         closeModal();
+        if (written === false) return; // flush() already showed the real error
         toast('ok', 'Character saved');
       });
       modal.querySelector('[data-modal-delete]').addEventListener('click', async () => {

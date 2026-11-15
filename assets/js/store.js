@@ -61,6 +61,7 @@ let remoteAdapter = null;
 let queue = [];
 let sending = false;
 let flushTimer = null;
+let currentFlush = null; // promise of the in-flight flush, so callers can await the real result
 
 export function subscribe(fn) {
   listeners.add(fn);
@@ -227,9 +228,16 @@ export async function savePortrait(character, dataUrl) {
         { type: 'portrait.upsert', portrait: { key, mime: match[1], data: match[2] } },
       ]);
       if (!res || !res.applied) throw new ApiError('Portrait storage is not deployed yet.', 'OLD_BACKEND');
+      // Persisted on the sheet. Keep the original bytes on this device too so the
+      // portrait survives a Drive outage and can be re-uploaded automatically.
+      try {
+        portraits.saveLocalPortrait(key, dataUrl);
+      } catch {
+        /* device storage is a cache, not the source of truth */
+      }
       notify('ok', 'Portrait uploaded to Drive');
-      refreshPortraits();
-      return;
+      await refreshPortraits();
+      return { uploaded: true };
     } catch (error) {
       portraits.saveLocalPortrait(key, dataUrl);
       if (error.code === 'BAD_PIN') {
@@ -239,12 +247,13 @@ export async function savePortrait(character, dataUrl) {
       } else {
         notify('error', 'Portrait upload failed', error.message);
       }
-      return;
+      return { uploaded: false, error };
     }
   }
 
   portraits.saveLocalPortrait(key, dataUrl);
   notify('ok', 'Portrait saved on this device');
+  return { uploaded: false };
 }
 
 export async function removePortrait(character) {
@@ -276,46 +285,55 @@ function scheduleFlush(delay = 400) {
 }
 
 async function flush() {
-  if (sending || !queue.length) return;
+  // A flush is already in flight: report its outcome rather than a fake success.
+  if (sending) return currentFlush;
+  if (!queue.length) return true;
   if (state.status !== 'remote' || !remoteAdapter) {
     persistLocal();
     queue = [];
     emit();
-    return;
+    return true;
   }
   sending = true;
   const ops = queue.splice(0);
   state.sync.state = 'saving';
   emit();
-  try {
-    const res = await remoteAdapter.send(settings.pin, ops);
-    state.sync = {
-      state: 'ok',
-      revision: res.revision ?? state.sync.revision,
-      at: isoNow(),
-      error: '',
-      pending: queue.length,
-    };
-    if (queue.length) scheduleFlush(0);
-  } catch (error) {
-    queue = ops.concat(queue);
-    state.sync = { ...state.sync, state: 'error', error: error.message };
-    if (error.code !== 'BAD_PIN' && error.code !== 'NO_PIN') scheduleFlush(4000);
-    notify('error', 'Save failed — your change is queued', error.message);
-  } finally {
-    sending = false;
-    emit();
-  }
+  currentFlush = (async () => {
+    try {
+      const res = await remoteAdapter.send(settings.pin, ops);
+      state.sync = {
+        state: 'ok',
+        revision: res.revision ?? state.sync.revision,
+        at: isoNow(),
+        error: '',
+        pending: queue.length,
+      };
+      if (queue.length) scheduleFlush(0);
+      return true;
+    } catch (error) {
+      queue = ops.concat(queue);
+      state.sync = { ...state.sync, state: 'error', error: error.message };
+      if (error.code !== 'BAD_PIN' && error.code !== 'NO_PIN') scheduleFlush(4000);
+      notify('error', 'Save failed — your change is queued', error.message);
+      return false;
+    } finally {
+      sending = false;
+      currentFlush = undefined;
+      emit();
+    }
+  })();
+  return currentFlush;
 }
 
 function queueOps(ops) {
   const list = Array.isArray(ops) ? ops : [ops];
   if (state.status === 'remote' && remoteAdapter) {
     queue.push(...list);
-    scheduleFlush();
-  } else {
-    persistLocal();
+    // Resolve with the real result: false means the write did not reach the sheet.
+    return flush().then((ok) => ok !== false);
   }
+  persistLocal();
+  return Promise.resolve(true);
 }
 
 /* --------------------------------------------------------------- polling */
@@ -516,10 +534,11 @@ export function addCharacter(playerId, name, extra = {}) {
 
 export function updateCharacter(id, patch) {
   const character = state.data.characters.find((c) => c.id === id);
-  if (!character) return;
+  if (!character) return Promise.resolve(false);
   Object.assign(character, patch);
-  queueOps({ type: 'character.upsert', character });
+  const result = queueOps({ type: 'character.upsert', character });
   emit();
+  return result;
 }
 
 export function deleteCharacter(id) {
