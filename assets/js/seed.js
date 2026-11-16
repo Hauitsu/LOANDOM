@@ -1,9 +1,9 @@
 /* Demo data modelled on the original LOANDOM sheet.
  *
  * Week tokens "@current" / "@prev" are resolved to real reset weeks at load
- * time, so the demo always looks alive. Item levels are placeholders except
- * where the guild roster lists them (tayori 1770.83, tayorii 1751.67) — edit
- * them in Roster, or wipe the demo from Settings and start from your own sheet.
+ * time, so the demo always looks alive. Character names and item levels follow
+ * the guild roster snapshot; edit them in Roster, or wipe the demo from
+ * Settings and start from your own sheet.
  *
  * Layout decoded from the sheet:
  *   columns  = roster owners (OIS, RYN, DP, TQ)
@@ -79,28 +79,28 @@ export const seed = {
 
   characters: [
     // OIS
-    { id: 'c_ois_cafra', playerId: 'p_ois', name: 'cafra', className: '', ilvl: 1762, goldEarner: true, active: true },
-    { id: 'c_ois_secil', playerId: 'p_ois', name: 'secil', className: '', ilvl: 1758, goldEarner: true, active: true },
-    { id: 'c_ois_secil2', playerId: 'p_ois', name: 'secil2', className: '', ilvl: 1755, goldEarner: true, active: true },
-    { id: 'c_ois_hyun', playerId: 'p_ois', name: 'hyun', className: '', ilvl: 1752, goldEarner: true, active: true },
-    { id: 'c_ois_pelts', playerId: 'p_ois', name: 'pelts', className: '', ilvl: 1750, goldEarner: true, active: true },
-    { id: 'c_ois_eur', playerId: 'p_ois', name: 'eur', className: '', ilvl: 1770, goldEarner: true, active: true },
+    { id: 'c_ois_cafra', playerId: 'p_ois', name: 'Cafra', className: '', ilvl: 1751.67, goldEarner: true, active: true },
+    { id: 'c_ois_secil', playerId: 'p_ois', name: 'Shechil', className: '', ilvl: 1755.83, goldEarner: true, active: true },
+    { id: 'c_ois_secil2', playerId: 'p_ois', name: 'Shechiil', className: '', ilvl: 1733.33, goldEarner: true, active: true },
+    { id: 'c_ois_hyun', playerId: 'p_ois', name: 'Hyünwoo', className: '', ilvl: 1750.83, goldEarner: true, active: true },
+    { id: 'c_ois_pelts', playerId: 'p_ois', name: 'Feltz', className: '', ilvl: 1750.83, goldEarner: true, active: true },
+    { id: 'c_ois_eur', playerId: 'p_ois', name: 'Euir', className: '', ilvl: 1770.83, goldEarner: true, active: true },
 
     // RYN
-    { id: 'c_ryn_pap', playerId: 'p_ryn', name: 'pap', className: '', ilvl: 1751, goldEarner: true, active: true },
-    { id: 'c_ryn_nur', playerId: 'p_ryn', name: 'nur', className: '', ilvl: 1756, goldEarner: true, active: true },
-    { id: 'c_ryn_tayori', playerId: 'p_ryn', name: 'tayori', className: '', ilvl: 1770.83, goldEarner: true, active: true },
-    { id: 'c_ryn_tayorii', playerId: 'p_ryn', name: 'tayorii', className: '', ilvl: 1751.67, goldEarner: true, active: true },
-    { id: 'c_ryn_frian', playerId: 'p_ryn', name: 'frian', className: '', ilvl: 1766, goldEarner: true, active: true },
-    { id: 'c_ryn_maung', playerId: 'p_ryn', name: 'maung', className: '', ilvl: 1757, goldEarner: true, active: true },
+    { id: 'c_ryn_pap', playerId: 'p_ryn', name: 'Vaif', className: '', ilvl: 1750, goldEarner: true, active: true },
+    { id: 'c_ryn_nur', playerId: 'p_ryn', name: 'Elnour', className: '', ilvl: 1750, goldEarner: true, active: true },
+    { id: 'c_ryn_tayori', playerId: 'p_ryn', name: 'Tayori', className: '', ilvl: 1770.83, goldEarner: true, active: true },
+    { id: 'c_ryn_tayorii', playerId: 'p_ryn', name: 'Tayorii', className: '', ilvl: 1751.67, goldEarner: true, active: true },
+    { id: 'c_ryn_frian', playerId: 'p_ryn', name: 'Friann', className: '', ilvl: 1750, goldEarner: true, active: true },
+    { id: 'c_ryn_maung', playerId: 'p_ryn', name: 'Suramaung', className: '', ilvl: 1732.5, goldEarner: true, active: true },
 
     // DP
-    { id: 'c_dp_suki', playerId: 'p_dp', name: 'suki', className: '', ilvl: 1764, goldEarner: true, active: true },
-    { id: 'c_dp_sua', playerId: 'p_dp', name: 'sua', className: '', ilvl: 1759, goldEarner: true, active: true },
-    { id: 'c_dp_boncel', playerId: 'p_dp', name: 'boncel', className: '', ilvl: 1756, goldEarner: true, active: true },
-    { id: 'c_dp_susu', playerId: 'p_dp', name: 'susu', className: '', ilvl: 1754, goldEarner: true, active: true },
-    { id: 'c_dp_nol2', playerId: 'p_dp', name: 'nol2', className: '', ilvl: 1753, goldEarner: true, active: true },
-    { id: 'c_dp_wisun', playerId: 'p_dp', name: 'wisun', className: '', ilvl: 1770, goldEarner: true, active: true },
+    { id: 'c_dp_suki', playerId: 'p_dp', name: 'Witsuki', className: '', ilvl: 1751.67, goldEarner: true, active: true },
+    { id: 'c_dp_sua', playerId: 'p_dp', name: 'Witsua', className: '', ilvl: 1750.83, goldEarner: true, active: true },
+    { id: 'c_dp_boncel', playerId: 'p_dp', name: 'Bouncel', className: '', ilvl: 1750, goldEarner: true, active: true },
+    { id: 'c_dp_susu', playerId: 'p_dp', name: 'Witsusu', className: '', ilvl: 1750, goldEarner: true, active: true },
+    { id: 'c_dp_nol2', playerId: 'p_dp', name: 'Noldua', className: '', ilvl: 1750, goldEarner: true, active: true },
+    { id: 'c_dp_wisun', playerId: 'p_dp', name: 'Witsune', className: '', ilvl: 1771.67, goldEarner: true, active: true },
 
     // TQ — empty roster in the sheet
   ],
@@ -139,60 +139,60 @@ export const seed = {
 
   assignments: [
     // Belgardin NM
-    { id: 'a_bnm1_ois', runId: 'r_bnm_1', playerId: 'p_ois', characterId: 'c_ois_cafra', name: 'cafra' },
-    { id: 'a_bnm1_ryn', runId: 'r_bnm_1', playerId: 'p_ryn', characterId: 'c_ryn_pap', name: 'pap' },
-    { id: 'a_bnm1_dp', runId: 'r_bnm_1', playerId: 'p_dp', characterId: 'c_dp_suki', name: 'suki' },
-    { id: 'a_bnm2_ois', runId: 'r_bnm_2', playerId: 'p_ois', characterId: 'c_ois_secil', name: 'secil' },
-    { id: 'a_bnm2_ryn', runId: 'r_bnm_2', playerId: 'p_ryn', characterId: 'c_ryn_nur', name: 'nur' },
-    { id: 'a_bnm2_dp', runId: 'r_bnm_2', playerId: 'p_dp', characterId: 'c_dp_sua', name: 'sua' },
-    { id: 'a_bnm3_ois', runId: 'r_bnm_3', playerId: 'p_ois', characterId: 'c_ois_hyun', name: 'hyun' },
-    { id: 'a_bnm3_ryn', runId: 'r_bnm_3', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'tayori' },
-    { id: 'a_bnm3_dp', runId: 'r_bnm_3', playerId: 'p_dp', characterId: 'c_dp_boncel', name: 'boncel' },
-    { id: 'a_bnm4_ois', runId: 'r_bnm_4', playerId: 'p_ois', characterId: 'c_ois_pelts', name: 'pelts' },
-    { id: 'a_bnm4_ryn', runId: 'r_bnm_4', playerId: 'p_ryn', characterId: 'c_ryn_frian', name: 'frian' },
-    { id: 'a_bnm4_dp', runId: 'r_bnm_4', playerId: 'p_dp', characterId: 'c_dp_susu', name: 'susu' },
+    { id: 'a_bnm1_ois', runId: 'r_bnm_1', playerId: 'p_ois', characterId: 'c_ois_cafra', name: 'Cafra' },
+    { id: 'a_bnm1_ryn', runId: 'r_bnm_1', playerId: 'p_ryn', characterId: 'c_ryn_pap', name: 'Vaif' },
+    { id: 'a_bnm1_dp', runId: 'r_bnm_1', playerId: 'p_dp', characterId: 'c_dp_suki', name: 'Witsuki' },
+    { id: 'a_bnm2_ois', runId: 'r_bnm_2', playerId: 'p_ois', characterId: 'c_ois_secil', name: 'Shechil' },
+    { id: 'a_bnm2_ryn', runId: 'r_bnm_2', playerId: 'p_ryn', characterId: 'c_ryn_nur', name: 'Elnour' },
+    { id: 'a_bnm2_dp', runId: 'r_bnm_2', playerId: 'p_dp', characterId: 'c_dp_sua', name: 'Witsua' },
+    { id: 'a_bnm3_ois', runId: 'r_bnm_3', playerId: 'p_ois', characterId: 'c_ois_hyun', name: 'Hyünwoo' },
+    { id: 'a_bnm3_ryn', runId: 'r_bnm_3', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'Tayori' },
+    { id: 'a_bnm3_dp', runId: 'r_bnm_3', playerId: 'p_dp', characterId: 'c_dp_boncel', name: 'Bouncel' },
+    { id: 'a_bnm4_ois', runId: 'r_bnm_4', playerId: 'p_ois', characterId: 'c_ois_pelts', name: 'Feltz' },
+    { id: 'a_bnm4_ryn', runId: 'r_bnm_4', playerId: 'p_ryn', characterId: 'c_ryn_frian', name: 'Friann' },
+    { id: 'a_bnm4_dp', runId: 'r_bnm_4', playerId: 'p_dp', characterId: 'c_dp_susu', name: 'Witsusu' },
 
     // Kazeros HM
-    { id: 'a_kaz1_ois', runId: 'r_kaz_1', playerId: 'p_ois', characterId: 'c_ois_cafra', name: 'cafra' },
-    { id: 'a_kaz1_ryn', runId: 'r_kaz_1', playerId: 'p_ryn', characterId: 'c_ryn_maung', name: 'maung' },
-    { id: 'a_kaz1_dp', runId: 'r_kaz_1', playerId: 'p_dp', characterId: 'c_dp_suki', name: 'suki' },
-    { id: 'a_kaz2_ois', runId: 'r_kaz_2', playerId: 'p_ois', characterId: 'c_ois_secil', name: 'secil' },
-    { id: 'a_kaz2_ryn', runId: 'r_kaz_2', playerId: 'p_ryn', characterId: 'c_ryn_nur', name: 'nur' },
-    { id: 'a_kaz2_dp', runId: 'r_kaz_2', playerId: 'p_dp', characterId: 'c_dp_susu', name: 'susu' },
-    { id: 'a_kaz3_ois', runId: 'r_kaz_3', playerId: 'p_ois', characterId: 'c_ois_secil2', name: 'secil2' },
-    { id: 'a_kaz3_ryn', runId: 'r_kaz_3', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'tayori' },
-    { id: 'a_kaz3_dp', runId: 'r_kaz_3', playerId: 'p_dp', characterId: 'c_dp_boncel', name: 'boncel' },
-    { id: 'a_kaz4_ois', runId: 'r_kaz_4', playerId: 'p_ois', characterId: 'c_ois_hyun', name: 'hyun' },
-    { id: 'a_kaz4_ryn', runId: 'r_kaz_4', playerId: 'p_ryn', characterId: 'c_ryn_pap', name: 'pap' },
-    { id: 'a_kaz4_dp', runId: 'r_kaz_4', playerId: 'p_dp', characterId: 'c_dp_nol2', name: 'nol2' },
-    { id: 'a_kaz5_ois', runId: 'r_kaz_5', playerId: 'p_ois', characterId: 'c_ois_pelts', name: 'pelts' },
-    { id: 'a_kaz5_ryn', runId: 'r_kaz_5', playerId: 'p_ryn', characterId: 'c_ryn_frian', name: 'frian' },
-    { id: 'a_kaz5_dp', runId: 'r_kaz_5', playerId: 'p_dp', characterId: 'c_dp_sua', name: 'sua' },
+    { id: 'a_kaz1_ois', runId: 'r_kaz_1', playerId: 'p_ois', characterId: 'c_ois_cafra', name: 'Cafra' },
+    { id: 'a_kaz1_ryn', runId: 'r_kaz_1', playerId: 'p_ryn', characterId: 'c_ryn_maung', name: 'Suramaung' },
+    { id: 'a_kaz1_dp', runId: 'r_kaz_1', playerId: 'p_dp', characterId: 'c_dp_suki', name: 'Witsuki' },
+    { id: 'a_kaz2_ois', runId: 'r_kaz_2', playerId: 'p_ois', characterId: 'c_ois_secil', name: 'Shechil' },
+    { id: 'a_kaz2_ryn', runId: 'r_kaz_2', playerId: 'p_ryn', characterId: 'c_ryn_nur', name: 'Elnour' },
+    { id: 'a_kaz2_dp', runId: 'r_kaz_2', playerId: 'p_dp', characterId: 'c_dp_susu', name: 'Witsusu' },
+    { id: 'a_kaz3_ois', runId: 'r_kaz_3', playerId: 'p_ois', characterId: 'c_ois_secil2', name: 'Shechiil' },
+    { id: 'a_kaz3_ryn', runId: 'r_kaz_3', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'Tayori' },
+    { id: 'a_kaz3_dp', runId: 'r_kaz_3', playerId: 'p_dp', characterId: 'c_dp_boncel', name: 'Bouncel' },
+    { id: 'a_kaz4_ois', runId: 'r_kaz_4', playerId: 'p_ois', characterId: 'c_ois_hyun', name: 'Hyünwoo' },
+    { id: 'a_kaz4_ryn', runId: 'r_kaz_4', playerId: 'p_ryn', characterId: 'c_ryn_pap', name: 'Vaif' },
+    { id: 'a_kaz4_dp', runId: 'r_kaz_4', playerId: 'p_dp', characterId: 'c_dp_nol2', name: 'Noldua' },
+    { id: 'a_kaz5_ois', runId: 'r_kaz_5', playerId: 'p_ois', characterId: 'c_ois_pelts', name: 'Feltz' },
+    { id: 'a_kaz5_ryn', runId: 'r_kaz_5', playerId: 'p_ryn', characterId: 'c_ryn_frian', name: 'Friann' },
+    { id: 'a_kaz5_dp', runId: 'r_kaz_5', playerId: 'p_dp', characterId: 'c_dp_sua', name: 'Witsua' },
 
     // Belgardin HM
-    { id: 'a_bhm1_ois', runId: 'r_bhm_1', playerId: 'p_ois', characterId: 'c_ois_eur', name: 'eur' },
-    { id: 'a_bhm1_ryn', runId: 'r_bhm_1', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'tayori' },
-    { id: 'a_bhm1_dp', runId: 'r_bhm_1', playerId: 'p_dp', characterId: 'c_dp_wisun', name: 'wisun' },
+    { id: 'a_bhm1_ois', runId: 'r_bhm_1', playerId: 'p_ois', characterId: 'c_ois_eur', name: 'Euir' },
+    { id: 'a_bhm1_ryn', runId: 'r_bhm_1', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'Tayori' },
+    { id: 'a_bhm1_dp', runId: 'r_bhm_1', playerId: 'p_dp', characterId: 'c_dp_wisun', name: 'Witsune' },
 
-    // Serca HM (row 1 is tayori, row 4 is tayorii — two different characters)
-    { id: 'a_shm1_ois', runId: 'r_shm_1', playerId: 'p_ois', characterId: 'c_ois_eur', name: 'eur' },
-    { id: 'a_shm1_ryn', runId: 'r_shm_1', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'tayori' },
-    { id: 'a_shm1_dp', runId: 'r_shm_1', playerId: 'p_dp', characterId: 'c_dp_sua', name: 'sua' },
-    { id: 'a_shm2_ois', runId: 'r_shm_2', playerId: 'p_ois', characterId: 'c_ois_cafra', name: 'cafra' },
-    { id: 'a_shm2_ryn', runId: 'r_shm_2', playerId: 'p_ryn', characterId: 'c_ryn_frian', name: 'frian' },
-    { id: 'a_shm2_dp', runId: 'r_shm_2', playerId: 'p_dp', characterId: 'c_dp_nol2', name: 'nol2' },
-    { id: 'a_shm3_ois', runId: 'r_shm_3', playerId: 'p_ois', characterId: 'c_ois_secil', name: 'secil' },
-    { id: 'a_shm3_ryn', runId: 'r_shm_3', playerId: 'p_ryn', characterId: 'c_ryn_nur', name: 'nur' },
-    { id: 'a_shm3_dp', runId: 'r_shm_3', playerId: 'p_dp', characterId: 'c_dp_susu', name: 'susu' },
-    { id: 'a_shm4_ois', runId: 'r_shm_4', playerId: 'p_ois', characterId: 'c_ois_secil2', name: 'secil2' },
-    { id: 'a_shm4_ryn', runId: 'r_shm_4', playerId: 'p_ryn', characterId: 'c_ryn_tayorii', name: 'tayorii' },
-    { id: 'a_shm4_dp', runId: 'r_shm_4', playerId: 'p_dp', characterId: 'c_dp_boncel', name: 'boncel' },
-    { id: 'a_shm5_ois', runId: 'r_shm_5', playerId: 'p_ois', characterId: 'c_ois_hyun', name: 'hyun' },
-    { id: 'a_shm5_ryn', runId: 'r_shm_5', playerId: 'p_ryn', characterId: 'c_ryn_pap', name: 'pap' },
-    { id: 'a_shm5_dp', runId: 'r_shm_5', playerId: 'p_dp', characterId: 'c_dp_suki', name: 'suki' },
-    { id: 'a_shm6_ois', runId: 'r_shm_6', playerId: 'p_ois', characterId: 'c_ois_pelts', name: 'pelts' },
-    { id: 'a_shm6_ryn', runId: 'r_shm_6', playerId: 'p_ryn', characterId: 'c_ryn_maung', name: 'maung' },
-    { id: 'a_shm6_dp', runId: 'r_shm_6', playerId: 'p_dp', characterId: 'c_dp_wisun', name: 'wisun' },
+    // Serca HM (row 1 is Tayori, row 4 is Tayorii — two different characters)
+    { id: 'a_shm1_ois', runId: 'r_shm_1', playerId: 'p_ois', characterId: 'c_ois_eur', name: 'Euir' },
+    { id: 'a_shm1_ryn', runId: 'r_shm_1', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'Tayori' },
+    { id: 'a_shm1_dp', runId: 'r_shm_1', playerId: 'p_dp', characterId: 'c_dp_sua', name: 'Witsua' },
+    { id: 'a_shm2_ois', runId: 'r_shm_2', playerId: 'p_ois', characterId: 'c_ois_cafra', name: 'Cafra' },
+    { id: 'a_shm2_ryn', runId: 'r_shm_2', playerId: 'p_ryn', characterId: 'c_ryn_frian', name: 'Friann' },
+    { id: 'a_shm2_dp', runId: 'r_shm_2', playerId: 'p_dp', characterId: 'c_dp_nol2', name: 'Noldua' },
+    { id: 'a_shm3_ois', runId: 'r_shm_3', playerId: 'p_ois', characterId: 'c_ois_secil', name: 'Shechil' },
+    { id: 'a_shm3_ryn', runId: 'r_shm_3', playerId: 'p_ryn', characterId: 'c_ryn_nur', name: 'Elnour' },
+    { id: 'a_shm3_dp', runId: 'r_shm_3', playerId: 'p_dp', characterId: 'c_dp_susu', name: 'Witsusu' },
+    { id: 'a_shm4_ois', runId: 'r_shm_4', playerId: 'p_ois', characterId: 'c_ois_secil2', name: 'Shechiil' },
+    { id: 'a_shm4_ryn', runId: 'r_shm_4', playerId: 'p_ryn', characterId: 'c_ryn_tayorii', name: 'Tayorii' },
+    { id: 'a_shm4_dp', runId: 'r_shm_4', playerId: 'p_dp', characterId: 'c_dp_boncel', name: 'Bouncel' },
+    { id: 'a_shm5_ois', runId: 'r_shm_5', playerId: 'p_ois', characterId: 'c_ois_hyun', name: 'Hyünwoo' },
+    { id: 'a_shm5_ryn', runId: 'r_shm_5', playerId: 'p_ryn', characterId: 'c_ryn_pap', name: 'Vaif' },
+    { id: 'a_shm5_dp', runId: 'r_shm_5', playerId: 'p_dp', characterId: 'c_dp_suki', name: 'Witsuki' },
+    { id: 'a_shm6_ois', runId: 'r_shm_6', playerId: 'p_ois', characterId: 'c_ois_pelts', name: 'Feltz' },
+    { id: 'a_shm6_ryn', runId: 'r_shm_6', playerId: 'p_ryn', characterId: 'c_ryn_maung', name: 'Suramaung' },
+    { id: 'a_shm6_dp', runId: 'r_shm_6', playerId: 'p_dp', characterId: 'c_dp_wisun', name: 'Witsune' },
   ],
 
   ledger: [
