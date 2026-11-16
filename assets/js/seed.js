@@ -1,9 +1,9 @@
 /* Demo data modelled on the original LOANDOM sheet.
  *
  * Week tokens "@current" / "@prev" are resolved to real reset weeks at load
- * time, so the demo always looks alive. Character item levels are placeholders
- * (the screenshot does not contain them) — edit them in Roster, or wipe the
- * demo from Settings and start from your own sheet.
+ * time, so the demo always looks alive. Item levels are placeholders except
+ * where the guild roster lists them (tayori 1770.83, tayorii 1751.67) — edit
+ * them in Roster, or wipe the demo from Settings and start from your own sheet.
  *
  * Layout decoded from the sheet:
  *   columns  = roster owners (OIS, RYN, DP, TQ)
@@ -89,7 +89,8 @@ export const seed = {
     // RYN
     { id: 'c_ryn_pap', playerId: 'p_ryn', name: 'pap', className: '', ilvl: 1751, goldEarner: true, active: true },
     { id: 'c_ryn_nur', playerId: 'p_ryn', name: 'nur', className: '', ilvl: 1756, goldEarner: true, active: true },
-    { id: 'c_ryn_tayori', playerId: 'p_ryn', name: 'tayori', className: '', ilvl: 1770, goldEarner: true, active: true },
+    { id: 'c_ryn_tayori', playerId: 'p_ryn', name: 'tayori', className: '', ilvl: 1770.83, goldEarner: true, active: true },
+    { id: 'c_ryn_tayorii', playerId: 'p_ryn', name: 'tayorii', className: '', ilvl: 1751.67, goldEarner: true, active: true },
     { id: 'c_ryn_frian', playerId: 'p_ryn', name: 'frian', className: '', ilvl: 1766, goldEarner: true, active: true },
     { id: 'c_ryn_maung', playerId: 'p_ryn', name: 'maung', className: '', ilvl: 1757, goldEarner: true, active: true },
 
@@ -173,7 +174,7 @@ export const seed = {
     { id: 'a_bhm1_ryn', runId: 'r_bhm_1', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'tayori' },
     { id: 'a_bhm1_dp', runId: 'r_bhm_1', playerId: 'p_dp', characterId: 'c_dp_wisun', name: 'wisun' },
 
-    // Serca HM (note: tayori appears twice in the original sheet, row 1 and row 4)
+    // Serca HM (row 1 is tayori, row 4 is tayorii — two different characters)
     { id: 'a_shm1_ois', runId: 'r_shm_1', playerId: 'p_ois', characterId: 'c_ois_eur', name: 'eur' },
     { id: 'a_shm1_ryn', runId: 'r_shm_1', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'tayori' },
     { id: 'a_shm1_dp', runId: 'r_shm_1', playerId: 'p_dp', characterId: 'c_dp_sua', name: 'sua' },
@@ -184,7 +185,7 @@ export const seed = {
     { id: 'a_shm3_ryn', runId: 'r_shm_3', playerId: 'p_ryn', characterId: 'c_ryn_nur', name: 'nur' },
     { id: 'a_shm3_dp', runId: 'r_shm_3', playerId: 'p_dp', characterId: 'c_dp_susu', name: 'susu' },
     { id: 'a_shm4_ois', runId: 'r_shm_4', playerId: 'p_ois', characterId: 'c_ois_secil2', name: 'secil2' },
-    { id: 'a_shm4_ryn', runId: 'r_shm_4', playerId: 'p_ryn', characterId: 'c_ryn_tayori', name: 'tayori' },
+    { id: 'a_shm4_ryn', runId: 'r_shm_4', playerId: 'p_ryn', characterId: 'c_ryn_tayorii', name: 'tayorii' },
     { id: 'a_shm4_dp', runId: 'r_shm_4', playerId: 'p_dp', characterId: 'c_dp_boncel', name: 'boncel' },
     { id: 'a_shm5_ois', runId: 'r_shm_5', playerId: 'p_ois', characterId: 'c_ois_hyun', name: 'hyun' },
     { id: 'a_shm5_ryn', runId: 'r_shm_5', playerId: 'p_ryn', characterId: 'c_ryn_pap', name: 'pap' },
