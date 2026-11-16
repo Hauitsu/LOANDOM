@@ -685,6 +685,7 @@ tr:hover .row-actions { opacity: 1; }
 .modal .form-grid { padding-top: 6px; }
 .portrait-edit { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 6px 0 14px; margin-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
 .portrait-preview {
+  position: relative;
   min-width: 110px; min-height: 130px; max-width: 100%;
   border-radius: 12px; flex: none; overflow: hidden; padding: 4px;
   display: grid; place-items: center; background: rgba(255, 255, 255, 0.04);
@@ -693,6 +694,25 @@ tr:hover .row-actions { opacity: 1; }
 }
 .portrait-preview img { max-width: 100%; max-height: 80vh; width: auto; height: auto; object-fit: contain; display: block; border-radius: 9px; }
 .portrait-side { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.portrait-progress {
+  position: absolute; inset: 4px; z-index: 2; border-radius: 9px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
+  padding: 10px; background: linear-gradient(180deg, rgba(9, 12, 18, 0.15), rgba(9, 12, 18, 0.82));
+  backdrop-filter: blur(1.5px);
+}
+.portrait-progress[hidden] { display: none; }
+.portrait-progress .progress { flex: none; height: 5px; }
+.portrait-progress p {
+  margin: 0; font-size: 11px; color: #dbe3f2; line-height: 1.3;
+  display: flex; align-items: center; gap: 6px;
+}
+.portrait-progress p::before {
+  content: ''; flex: none; width: 11px; height: 11px; border-radius: 99px;
+  border: 2px solid rgba(255, 255, 255, 0.18); border-top-color: var(--gold);
+  animation: spin 0.7s linear infinite;
+}
+.portrait-preview.is-busy img { opacity: 0.55; }
+.portrait-actions .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .portrait-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .portrait-side .tiny-note { line-height: 1.35; }
 .eligibility { background: rgba(255, 255, 255, 0.02); border: 1px solid var(--line-soft); border-radius: 10px; padding: 9px 11px; }
@@ -743,8 +763,9 @@ tr:hover .row-actions { opacity: 1; }
 }
 .char-tip[hidden] { display: none; }
 .tip-media { flex: 0 0 auto; width: auto; display: grid; place-items: center; }
-/* Width is set inline to 50% of the portrait's natural size (see sizePortrait).
-   These caps only kick in on tiny viewports so the tip always fits on screen. */
+/* Width is set inline as a share of the portrait's natural size: 40% in the tip,
+   50% in the character modal (see sizePortrait). The caps below only kick in on
+   tiny viewports so the tip always fits on screen. */
 .tip-media img { max-width: 60vw; max-height: 78vh; height: auto; display: block; border-radius: 8px; }
 .tip-body { display: flex; flex-direction: column; gap: 3px; min-width: 150px; max-width: 240px; font-size: 12px; }
 .tip-body strong { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; }

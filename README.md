@@ -32,7 +32,7 @@ No database service, no VPS, no deploy secrets. The site is three folders of fil
 
 **Roster**
 - Characters per owner with class and item level.
-- **Paste a portrait from the clipboard** (or pick a file) in the character modal — uploaded to **Google Drive by the script** and stored as a file ID in the `Portraits` tab. No re-encoding: the original bytes are kept; the UI renders it at **50% of its natural size** with the aspect ratio intact.
+- **Paste a portrait from the clipboard** (or pick a file) in the character modal — uploaded to **Google Drive by the script** and stored as a file ID in the `Portraits` tab. No re-encoding: the original bytes are kept; the UI renders it at **50% of its natural size** in the character modal and **40%** in the roster tooltip, with the aspect ratio intact.
 - Portraits appear in the character modal, a hover tooltip, and the assignment picker on the board — never as a cropped square.
 - **Focus a single raid**: the expand button on any raid card (or `#/raid/<id>`) opens a full-width board for that raid, with larger rows and the same controls.
 - Class badges use a local class list (no external assets); set the class in the same modal.

@@ -35,3 +35,6 @@ export async function readPortraitFile(blob) {
 
 export const displayWidthFor = (naturalWidth, ratio = 0.5) =>
   Math.max(1, Math.round(naturalWidth * ratio));
+
+/** Tooltips render smaller than the character modal. */
+export const TOOLTIP_RATIO = 0.4;

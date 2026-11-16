@@ -28,6 +28,14 @@ export const fmtK = (value) => {
 
 export const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
+/** 950 -> "950 B", 1_250_000 -> "1.3 MB". Used for upload progress labels. */
+export const prettyBytes = (bytes) => {
+  const n = Math.max(0, Math.round(num(bytes)));
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 export const uid = (prefix = 'id') =>
   `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 

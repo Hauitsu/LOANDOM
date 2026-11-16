@@ -8,7 +8,7 @@
 import { createRemote, createLocal, ApiError } from './api.js';
 import { seed } from './seed.js';
 import * as model from './model.js';
-import { weekKeyFromDate, addWeeks, isoNow, uid, num, clamp, slug } from './util.js';
+import { weekKeyFromDate, addWeeks, isoNow, uid, num, clamp, slug, prettyBytes } from './util.js';
 import * as portraits from './portraits.js';
 
 const SETTINGS_KEY = 'loandom.settings.v1';
@@ -213,21 +213,34 @@ export async function refreshPortraits({ silent = true } = {}) {
   emit();
 }
 
-export async function savePortrait(character, dataUrl) {
-  if (!character) return;
+export async function savePortrait(character, dataUrl, onProgress = () => {}) {
+  if (!character) return { saved: false };
   const key = character.id || slug(character.name);
   const match = /^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i.exec(String(dataUrl || ''));
   if (!match) throw new ApiError('Unsupported image data.', 'BAD_IMAGE');
+  const report = (stage, text) => {
+    try {
+      onProgress(stage, text);
+    } catch {
+      /* progress is cosmetic; never let it break the save */
+    }
+  };
 
   portraits.setPortrait(key, dataUrl);
   emit();
 
   if (state.status === 'remote' && remoteAdapter) {
     try {
+      const mime = match[1];
+      const data = match[2];
+      // Drive upload dominates the wait, so the bar creeps toward 90% while in
+      // flight and only completes once the server answers.
+      report('upload', `Uploading to Drive · ${prettyBytes(Math.round(data.length * 0.75))}`);
       const res = await remoteAdapter.send(settings.pin, [
-        { type: 'portrait.upsert', portrait: { key, mime: match[1], data: match[2] } },
+        { type: 'portrait.upsert', portrait: { key, mime, data } },
       ]);
       if (!res || !res.applied) throw new ApiError('Portrait storage is not deployed yet.', 'OLD_BACKEND');
+      report('cache', 'Saving a copy on this device');
       // Persisted on the sheet. Keep the original bytes on this device too so the
       // portrait survives a Drive outage and can be re-uploaded automatically.
       try {
@@ -237,9 +250,12 @@ export async function savePortrait(character, dataUrl) {
       }
       notify('ok', 'Portrait uploaded to Drive');
       await refreshPortraits();
-      return { uploaded: true };
+      return { saved: true, uploaded: true };
     } catch (error) {
       portraits.saveLocalPortrait(key, dataUrl);
+      // A missing PIN or an old deployment still leaves a usable local copy, so the
+      // portrait is saved — it just does not reach Drive.
+      const localOnly = error.code === 'BAD_PIN' || error.code === 'OLD_BACKEND';
       if (error.code === 'BAD_PIN') {
         notify('info', 'Portrait saved on this device', 'No write PIN, so it cannot sync to the sheet.');
       } else if (error.code === 'OLD_BACKEND') {
@@ -247,13 +263,14 @@ export async function savePortrait(character, dataUrl) {
       } else {
         notify('error', 'Portrait upload failed', error.message);
       }
-      return { uploaded: false, error };
+      return { saved: localOnly, uploaded: false, error };
     }
   }
 
+  report('local', 'Saving on this device');
   portraits.saveLocalPortrait(key, dataUrl);
   notify('ok', 'Portrait saved on this device');
-  return { uploaded: false };
+  return { saved: true, uploaded: false };
 }
 
 export async function removePortrait(character) {

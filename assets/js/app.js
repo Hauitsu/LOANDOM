@@ -39,6 +39,7 @@ import {
   buildInvite,
   savePortrait,
   removePortrait,
+  refreshPortraits,
   currentStats,
 } from './store.js';
 import { $, esc, attr, fmt, num, weekLabel, weekYear, ago, download, colorFor } from './util.js';
@@ -59,7 +60,7 @@ import { renderSettings } from './views/settings.js';
 import { portraitFor, portraitFallbackFor } from './portraits.js';
 import { classColor, classInfo, CLASSES } from './classes.js';
 import { classBadge } from './classbadge.js';
-import { readPortraitFile, displayWidthFor } from './image.js';
+import { readPortraitFile, displayWidthFor, TOOLTIP_RATIO } from './image.js';
 
 const ROUTES = {
   board: { label: 'Board', icon: 'sword', render: renderBoard },
@@ -202,7 +203,7 @@ function render() {
 
 /* ---------------------------------------------------------------- modals */
 
-function sizePortrait(img, onResize) {
+function sizePortrait(img, onResize, ratio = 0.5) {
   if (!img) return;
   const fallback = img.dataset.portraitFallback;
   if (fallback) {
@@ -217,9 +218,9 @@ function sizePortrait(img, onResize) {
   }
   const apply = () => {
     if (!img.naturalWidth || !img.naturalHeight) return;
-    // 50% of the portrait's natural size, shrunk only on viewports that can't fit it.
+    // A share of the portrait's natural size, shrunk only on viewports that can't fit it.
     const cap = Math.min(60 * window.innerWidth / 100, 78 * window.innerHeight / 100);
-    const natural = displayWidthFor(img.naturalWidth); // width at 50%
+    const natural = displayWidthFor(img.naturalWidth, ratio);
     const naturalHeight = Math.round(natural * (img.naturalHeight / img.naturalWidth));
     const scale = Math.min(1, cap / natural, cap / naturalHeight);
     img.style.width = `${Math.round(natural * scale)}px`;
@@ -257,7 +258,11 @@ function openCharacterModal(charId) {
     body: `
       <div class="portrait-edit">
         <div class="portrait-preview" style="--cc:${attr(tint)}" data-portrait-preview>
-          ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" />` : `<span>${esc(character.name.slice(0, 2))}</span>`}
+          ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" />` : `<span data-portrait-placeholder>${esc(character.name.slice(0, 2))}</span>`}
+          <div class="portrait-progress" data-portrait-progress hidden>
+            <div class="progress"><span></span></div>
+            <p data-portrait-status>Preparing…</p>
+          </div>
         </div>
         <div class="portrait-side">
           <div class="portrait-actions">
@@ -266,7 +271,7 @@ function openCharacterModal(charId) {
             <button type="button" class="btn small ghost danger-text" data-portrait-remove>Remove</button>
           </div>
           <input type="file" accept="image/*" data-portrait-input hidden />
-          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Shown at 50% of the original size; stored without re-encoding.</p>
+          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Shown at 50% here and 40% in the roster tooltip, at its original aspect ratio; stored without re-encoding.</p>
         </div>
       </div>
       <form class="form-grid" data-form="char-edit" data-id="${attr(character.id)}">
@@ -318,21 +323,91 @@ function openCharacterModal(charId) {
     onMount(modal) {
       const preview = modal.querySelector('[data-portrait-preview]');
       const fileInput = modal.querySelector('[data-portrait-input]');
+      const progress = modal.querySelector('[data-portrait-progress]');
+      const progressFill = progress.querySelector('.progress > span');
+      const progressText = progress.querySelector('[data-portrait-status]');
+      const portraitButtons = Array.from(modal.querySelectorAll('[data-portrait-paste], [data-portrait-file], [data-portrait-remove]'));
+      const saveButton = modal.querySelector('[data-modal-save]');
+      let busy = false;
+      let creep = null;
+      let pct = 0;
+
+      // Drive upload is the slow part and gives us no real byte progress, so show
+      // an honest "in flight" bar that eases toward 90% and completes on response.
+      const startProgress = (text, from = 8) => {
+        busy = true;
+        portraitButtons.forEach((btn) => {
+          btn.disabled = true;
+        });
+        // The portrait write owns the modal until it settles; make that visible.
+        if (saveButton) saveButton.disabled = true;
+        preview.classList.add('is-busy');
+        progress.hidden = false;
+        progressText.textContent = text;
+        pct = from;
+        progressFill.style.width = `${pct}%`;
+        clearInterval(creep);
+        creep = setInterval(() => {
+          // Never move backward and never claim completion before the server answers.
+          pct = Math.min(90, Math.max(pct, pct + Math.max(0.4, (90 - pct) * 0.06)));
+          progressFill.style.width = `${pct}%`;
+        }, 180);
+      };
+      const setProgress = (stage, text) => {
+        if (!busy) return;
+        if (text) progressText.textContent = text;
+        if (stage === 'cache') pct = Math.max(pct, 96);
+        else if (stage === 'upload') pct = Math.max(pct, 40);
+        progressFill.style.width = `${pct}%`;
+      };
+      const finishProgress = async (ok) => {
+        clearInterval(creep);
+        pct = ok ? 100 : 0;
+        progressFill.style.width = `${pct}%`;
+        if (ok) await new Promise((resolve) => setTimeout(resolve, 220));
+        progress.hidden = true;
+        preview.classList.remove('is-busy');
+        portraitButtons.forEach((btn) => {
+          btn.disabled = false;
+        });
+        if (saveButton) saveButton.disabled = false;
+        busy = false;
+      };
+
       const paint = (url) => {
-        preview.innerHTML = url
-          ? `<img src="${attr(url)}" alt="" />`
-          : `<span>${esc(character.name.slice(0, 2))}</span>`;
         const img = preview.querySelector('img');
-        const apply = sizePortrait(img);
-        // The new src may already be decoded before the load listener could attach.
-        if (img?.complete && apply) apply();
+        const placeholder = preview.querySelector('[data-portrait-placeholder]');
+        if (url) {
+          if (img) {
+            img.src = url;
+            delete img.dataset.portraitFallback;
+          } else if (placeholder) {
+            placeholder.outerHTML = `<img src="${attr(url)}" alt="" />`;
+          }
+          const next = preview.querySelector('img');
+          const apply = sizePortrait(next);
+          // The new src may already be decoded before the load listener could attach.
+          if (next?.complete && apply) apply();
+        } else if (img) {
+          img.outerHTML = `<span data-portrait-placeholder>${esc(character.name.slice(0, 2))}</span>`;
+        }
       };
       const applyBlob = async (blob) => {
+        if (busy) return;
+        startProgress('Reading image…', 10);
         try {
           const { dataUrl } = await readPortraitFile(blob);
-          await savePortrait(character, dataUrl);
+          // Show the original immediately; the upload runs behind it.
           paint(dataUrl);
+          pct = Math.max(pct, 25);
+          const result = await savePortrait(character, dataUrl, setProgress);
+          await finishProgress(Boolean(result?.saved));
+          // A failed upload keeps a local copy; only re-read Drive when it landed.
+          if (result?.uploaded) await refreshPortraits();
         } catch (error) {
+          await finishProgress(false);
+          // Restore whatever is still stored instead of leaving a blank frame.
+          paint(portraitFor(character) || '');
           toast('error', 'Could not use that image', error.message);
         }
       };
@@ -373,17 +448,25 @@ function openCharacterModal(charId) {
       });
 
       modal.querySelector('[data-portrait-remove]').addEventListener('click', async () => {
-        await removePortrait(character);
-        paint('');
-        toast('info', 'Portrait removed');
+        if (busy || !preview.querySelector('img')) return;
+        startProgress('Removing portrait…', 20);
+        try {
+          await removePortrait(character);
+          paint('');
+          await finishProgress(true);
+          toast('info', 'Portrait removed');
+        } catch (error) {
+          await finishProgress(false);
+          toast('error', 'Could not remove that portrait', error.message);
+        }
       });
 
-      modal.querySelector('[data-modal-save]').addEventListener('click', async () => {
+      saveButton.addEventListener('click', async () => {
         const form = modal.querySelector('form');
         if (!form.reportValidity()) return;
+        if (busy) return; // the portrait upload owns this modal until it settles
         const data = new FormData(form);
-        const saveBtn = modal.querySelector('[data-modal-save]');
-        saveBtn.disabled = true;
+        saveButton.disabled = true;
         const result = updateCharacter(character.id, {
           name: String(data.get('name')).trim(),
           className: String(data.get('className')).trim(),
@@ -394,7 +477,7 @@ function openCharacterModal(charId) {
         });
         // Wait for the actual sheet write instead of claiming success up front.
         const written = await result;
-        saveBtn.disabled = false;
+        saveButton.disabled = false;
         closeModal();
         if (written === false) return; // flush() already showed the real error
         toast('ok', 'Character saved');
@@ -527,7 +610,7 @@ function showCharTip(anchor, character) {
     </div>`;
   charTip.hidden = false;
   positionCharTip(anchor);
-  sizePortrait(charTip.querySelector('img'), () => positionCharTip(anchor));
+  sizePortrait(charTip.querySelector('img'), () => positionCharTip(anchor), TOOLTIP_RATIO);
 }
 
 document.addEventListener('mouseover', (event) => {
