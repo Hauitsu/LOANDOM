@@ -8,7 +8,7 @@
  * Bump VERSION on every deploy. The cache name is the version, so the browser
  * installs the new file set next to the old one and swaps on activate.
  */
-const VERSION = 'loandom-2026-11-19-3';
+const VERSION = 'loandom-2026-11-19-4';
 const CACHE = VERSION;
 
 const SHELL = [

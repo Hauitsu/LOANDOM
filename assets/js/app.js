@@ -365,24 +365,32 @@ function restoreFocus(view, snap) {
 }
 
 /* The inline script in index.html paints this snapshot before the modules
-   arrive, so a reload shows the board instead of a loading state. Views are
-   kept per route: whichever page you reload, there is something to paint. */
+   arrive. The full set of routes lives in sessionStorage (per tab, its own
+   quota, so portrait bytes in localStorage cannot push it out); one route is
+   mirrored to localStorage so a new tab still has something to paint. */
+const BOOT_KEY = 'loandom.boot.v1';
 let bootCacheTimer = null;
+
+function readBootCache() {
+  try {
+    const raw = sessionStorage.getItem(BOOT_KEY) || localStorage.getItem(BOOT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 function cacheBootView(view) {
   clearTimeout(bootCacheTimer);
   bootCacheTimer = setTimeout(() => {
+    const build = document.documentElement.getAttribute('data-build');
+    const html = (id) => document.getElementById(id)?.innerHTML || '';
+    let stored = false;
     try {
-      const html = (id) => document.getElementById(id)?.innerHTML || '';
-      const build = document.documentElement.getAttribute('data-build');
-      let previous = null;
-      try {
-        previous = JSON.parse(localStorage.getItem('loandom.boot.v1') || 'null');
-      } catch {
-        previous = null;
-      }
+      const previous = readBootCache();
       const views = previous && previous.build === build && previous.views ? previous.views : {};
       views[state.route] = view.innerHTML;
-      localStorage.setItem('loandom.boot.v1', JSON.stringify({
+      const payload = {
         build,
         at: Date.now(),
         week: state.week,
@@ -392,11 +400,25 @@ function cacheBootView(view) {
         pill: html('sync-pill'),
         totals: html('totals'),
         views,
-      }));
-    } catch {
-      /* storage full or blocked: the skeleton is the fallback */
+      };
+      const json = JSON.stringify(payload);
+      try {
+        sessionStorage.setItem(BOOT_KEY, json);
+        stored = true;
+      } catch (error) {
+        /* per-tab quota: try the shared copy below */
+      }
+      try {
+        localStorage.setItem(BOOT_KEY, JSON.stringify({ ...payload, views: { [state.route]: view.innerHTML } }));
+        stored = true;
+      } catch (error) {
+        /* portraits may fill localStorage: the session copy still covers refresh */
+      }
+    } catch (error) {
+      stored = false;
     }
-  }, 350);
+    document.documentElement.dataset.snapshot = stored ? 'ok' : 'failed';
+  }, 200);
 }
 
 function render() {

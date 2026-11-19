@@ -130,7 +130,12 @@
          stays. Bump data-build on <html> when the shell markup changes. */
       (function () {
         try {
-          var raw = localStorage.getItem('loandom.boot.v1');
+          var raw = null;
+          try {
+            raw = sessionStorage.getItem('loandom.boot.v1') || localStorage.getItem('loandom.boot.v1');
+          } catch (error) {
+            raw = null;
+          }
           if (!raw) return;
           var saved = JSON.parse(raw);
           if (!saved || !saved.views || !saved.at) return;
