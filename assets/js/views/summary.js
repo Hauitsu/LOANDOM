@@ -1,7 +1,7 @@
 /* Gold summary: the bound / unbound numbers from the bottom of the sheet,
    plus per-raid, per-player and week-over-week breakdowns. */
 
-import { esc, attr, fmt, weekLabel, fmtK, colorFor, textOn } from '../util.js';
+import { esc, attr, fmt, weekLabel, weekStartLabel, fmtK, colorFor, textOn } from '../util.js';
 import { ico } from '../icons.js';
 import { progressBar } from '../ui.js';
 import * as model from '../model.js';
@@ -32,10 +32,10 @@ function modeSwitch(stats) {
   const mode = stats.goldMode;
   return `
     <div class="mode-switch" role="group" aria-label="Gold counting mode">
-      <button class="${mode === 'run' ? 'is-active' : ''}" data-act="gold-mode" data-mode="run" title="One payout per cleared run — matches the original sheet">
+      <button class="${mode === 'run' ? 'is-active' : ''}" data-act="gold-mode" data-mode="run" aria-pressed="${mode === 'run'}" title="One payout per cleared run — matches the original sheet">
         Per run
       </button>
-      <button class="${mode === 'character' ? 'is-active' : ''}" data-act="gold-mode" data-mode="character" title="Every character in a cleared run earns the payout — matches the game">
+      <button class="${mode === 'character' ? 'is-active' : ''}" data-act="gold-mode" data-mode="character" aria-pressed="${mode === 'character'}" title="Every character in a cleared run earns the payout — matches the game">
         Per character
       </button>
     </div>`;
@@ -60,8 +60,8 @@ function breakdown(stats) {
                   <span>${esc(block.raid.name)}</span>
                   <span class="badge subtle">${esc(block.raid.difficulty)}</span>
                 </div>
-                <div class="bd-bar">
-                  <span style="width:${share}%"></span>
+                <div class="bd-bar" aria-hidden="true">
+                  <span style="transform:scaleX(${share / 100})"></span>
                 </div>
               </div>
               <div class="bd-count muted">${block.clearedRuns}/${block.runCount}</div>
@@ -74,7 +74,7 @@ function breakdown(stats) {
             ? `<div class="breakdown-row is-manual">
                 <div class="bd-main">
                   <div class="bd-title"><span>Manual entries</span><span class="badge subtle">ledger</span></div>
-                  <div class="bd-bar"><span style="width:${Math.round((stats.ledger.totals.total / max) * 100)}%"></span></div>
+                  <div class="bd-bar" aria-hidden="true"><span style="transform:scaleX(${Math.round((stats.ledger.totals.total / max) * 100) / 100})"></span></div>
                 </div>
                 <div class="bd-count muted">${stats.ledger.rows.length}</div>
                 <div class="bd-gold">${fmt(stats.ledger.totals.total)}</div>
@@ -105,11 +105,11 @@ function playersPanel(stats) {
                 <span class="ps-avatar" style="--pc:${attr(color)};--pc-ink:${attr(textOn(color))}">${esc(player.tag || player.name.slice(0, 2))}</span>
                 <div class="ps-name">
                   <strong>${esc(player.name)}</strong>
-                  <span class="muted">${goldCharacters}/${6} gold-earning characters</span>
+                  <span class="muted">${goldCharacters}/${model.LIMITS.goldCharacters} gold-earning characters</span>
                 </div>
                 <div class="ps-stat"><span>Assigned</span><strong>${assignments}</strong></div>
                 <div class="ps-stat"><span>Cleared</span><strong>${clearedRuns}</strong></div>
-                <div class="ps-bar">${progressBar(Math.min(goldCharacters, 6), 6, goldCharacters > 6 ? 'danger' : 'gold')}</div>
+                <div class="ps-bar">${progressBar(Math.min(goldCharacters, model.LIMITS.goldCharacters), model.LIMITS.goldCharacters, goldCharacters > model.LIMITS.goldCharacters ? 'danger' : 'gold')}</div>
               </div>`;
           })
           .join('')}
@@ -144,6 +144,7 @@ function historyPanel(state) {
             const boundShare = row.totals.total ? Math.round((row.totals.bound / row.totals.total) * 100) : 0;
             return `
               <button class="hist-col ${row.week === state.week ? 'is-current' : ''}" data-act="jump-week" data-week="${attr(row.week)}"
+                aria-label="Week of ${attr(weekLabel(row.week))}: ${attr(fmt(row.totals.total))} gold"
                 title="${attr(weekLabel(row.week))}: ${fmt(row.totals.total)} G">
                 <span class="hist-track">
                   <span class="hist-bar" style="height:${Math.max(4, totalH)}%">
@@ -151,7 +152,7 @@ function historyPanel(state) {
                   </span>
                 </span>
                 <span class="hist-value">${fmtK(row.totals.total)}</span>
-                <span class="hist-label">${esc(weekLabel(row.week).split('–')[0].trim())}</span>
+                <span class="hist-label">${esc(weekStartLabel(row.week))}</span>
               </button>`;
           })
           .join('')}

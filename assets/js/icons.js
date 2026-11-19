@@ -10,6 +10,7 @@ export const icons = {
   check: (s = 16) => wrap('<path d="M20 6 9 17l-5-5"/>', s),
   x: (s = 16) => wrap('<path d="M18 6 6 18M6 6l12 12"/>', s),
   plus: (s = 16) => wrap('<path d="M12 5v14M5 12h14"/>', s),
+  more: (s = 16) => wrap('<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>', s),
   minus: (s = 16) => wrap('<path d="M5 12h14"/>', s),
   trash: (s = 16) => wrap('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>', s),
   chevronLeft: (s = 16) => wrap('<path d="m15 18-6-6 6-6"/>', s),

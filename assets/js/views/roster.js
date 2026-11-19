@@ -1,10 +1,11 @@
 /* Roster: every character, its item level and what it is doing this week. */
 
-import { esc, attr, num, colorFor, textOn } from '../util.js';
+import { esc, attr, num, colorFor, textOn, rowStatus } from '../util.js';
 import { ico } from '../icons.js';
 import { progressBar } from '../ui.js';
 import { classColor } from '../classes.js';
 import { classBadge } from '../classbadge.js';
+import { LIMITS } from '../model.js';
 
 function usageMap(stats) {
   const map = new Map();
@@ -21,12 +22,13 @@ function usageMap(stats) {
   return map;
 }
 
-function characterRow(character, player, usage, eligibleRaids) {
+function characterRow(character, player, usage, state) {
   const used = usage.get(character.id) || [];
   const clearedCount = used.filter((u) => u.cleared).length;
-  const overCap = clearedCount > 3;
+  const overCap = clearedCount > LIMITS.goldContent;
   const belowLevel = used.filter((u) => character.ilvl && u.raid.ilvl && character.ilvl < u.raid.ilvl);
   const tint = classColor(character.className);
+  const status = rowStatus(state, `character:${character.id}`);
 
   const chips = used.length
     ? used
@@ -39,14 +41,15 @@ function characterRow(character, player, usage, eligibleRaids) {
     : `<span class="usage is-idle">not assigned</span>`;
 
   return `
-    <tr class="${!character.active ? 'is-inactive' : ''}" data-char="${attr(character.id)}">
+    <tr class="${!character.active ? 'is-inactive' : ''}${status}" data-char="${attr(character.id)}"${status ? ' aria-busy="true"' : ''}>
       <td class="char-name-cell">
         ${classBadge(character.className, 22)}
-        <button class="char-name" data-act="edit-char" data-char="${attr(character.id)}" data-char-tip="${attr(character.id)}">
+        <button class="char-name" data-act="edit-char" data-char="${attr(character.id)}" data-char-tip="${attr(character.id)}" aria-label="Edit ${attr(character.name)}">
           ${character.goldEarner ? `<span class="crown" title="Gold earner">${ico('crown', 11)}</span>` : ''}
           <span>${esc(character.name)}</span>
         </button>
-        ${belowLevel.length ? `<span class="row-flag" title="Below the item level of ${esc(belowLevel.map((u) => u.raid.short).join(', '))}">${ico('warning', 11)}</span>` : ''}
+        ${character.active === false ? '<span class="badge subtle">inactive</span>' : ''}
+        ${belowLevel.length ? `<span class="row-flag" title="Below the item level of ${esc(belowLevel.map((u) => u.raid.short).join(', '))}" aria-label="Below item level">${ico('warning', 11)}</span>` : ''}
       </td>
       <td class="muted">${
         character.className
@@ -54,10 +57,10 @@ function characterRow(character, player, usage, eligibleRaids) {
           : '<span class="dash">—</span>'
       }</td>
       <td class="num">${character.ilvl ? esc(character.ilvl) : '<span class="dash">—</span>'}</td>
-      <td class="usage-cell">${chips}${overCap ? `<span class="usage is-over" title="Only 3 content entries pay gold">+${clearedCount - 3} over cap</span>` : ''}</td>
+      <td class="usage-cell">${chips}${overCap ? `<span class="usage is-over" title="Only ${LIMITS.goldContent} content entries pay gold">+${clearedCount - LIMITS.goldContent} over cap</span>` : ''}</td>
       <td class="row-actions">
-        <button class="mini" data-act="edit-char" data-char="${attr(character.id)}" title="Edit">${ico('settings', 13)}</button>
-        <button class="mini danger" data-act="del-char" data-char="${attr(character.id)}" title="Delete">${ico('trash', 13)}</button>
+        <button class="mini" data-act="edit-char" data-char="${attr(character.id)}" title="Edit" aria-label="Edit ${attr(character.name)}">${ico('settings', 13)}</button>
+        <button class="mini danger" data-act="del-char" data-char="${attr(character.id)}" title="Delete" aria-label="Delete ${attr(character.name)}">${ico('trash', 13)}</button>
       </td>
     </tr>`;
 }
@@ -74,26 +77,26 @@ function playerCard(player, state, stats, usage) {
   return `
     <section class="roster-card" style="--pc:${attr(color)};--pc-ink:${attr(textOn(color))}">
       <header class="roster-head">
-        <span class="avatar">${esc(player.tag || player.name.slice(0, 3))}</span>
+        <span class="avatar" aria-hidden="true">${esc(player.tag || player.name.slice(0, 3))}</span>
         <div class="roster-id">
           <h2>${esc(player.name)}</h2>
-          <p>${characters.length} character${characters.length === 1 ? '' : 's'} · ${goldEarners}/${6} gold earners</p>
+          <p>${characters.length} character${characters.length === 1 ? '' : 's'} · ${goldEarners}/${LIMITS.goldCharacters} gold earners</p>
         </div>
         <form class="add-char" data-form="add-char" data-player="${attr(player.id)}" autocomplete="off">
           <input name="name" placeholder="New character…" maxlength="24" aria-label="New character for ${attr(player.name)}" />
-          <button class="icon-btn" type="submit" title="Add character">${ico('plus', 15)}</button>
+          <button class="icon-btn" type="submit" title="Add character" aria-label="Add character">${ico('plus', 15)}</button>
         </form>
       </header>
 
-      <div class="roster-cap">${progressBar(Math.min(goldEarners, 6), 6)}</div>
+      <div class="roster-cap">${progressBar(Math.min(goldEarners, LIMITS.goldCharacters), LIMITS.goldCharacters)}</div>
 
       ${
         characters.length
           ? `<table class="table roster-table">
               <thead>
-                <tr><th>Character</th><th>Class</th><th>iLvl</th><th>This week <span class="muted">(${raidCount})</span></th><th></th></tr>
+                <tr><th scope="col">Character</th><th scope="col">Class</th><th scope="col">iLvl</th><th scope="col">This week <span class="muted">(${raidCount})</span></th><th scope="col"><span class="sr-only">Actions</span></th></tr>
               </thead>
-              <tbody>${characters.map((c) => characterRow(c, player, usage, stats.raidBlocks)).join('')}</tbody>
+              <tbody>${characters.map((c) => characterRow(c, player, usage, state)).join('')}</tbody>
             </table>`
           : `<div class="roster-empty">
               <p>No characters yet for ${esc(player.name)}.</p>
@@ -120,7 +123,7 @@ export function renderRoster(state, stats) {
       </div>
     </div>
     <div class="rules-strip">
-      <span>${ico('info', 14)} Weekly limits: <strong>6</strong> gold-earning characters per roster, <strong>3</strong> gold clears per character.</span>
+      <span>${ico('info', 14)} Weekly limits: <strong>${LIMITS.goldCharacters}</strong> gold-earning characters per roster, <strong>${LIMITS.goldContent}</strong> gold clears per character.</span>
       <span class="muted">The app flags anything over the cap.</span>
     </div>
     <div class="roster-grid">

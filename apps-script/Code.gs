@@ -262,7 +262,7 @@ function doPost(e) {
   } catch (error) {
     return json_({
       ok: false,
-      code: 'WRITE_FAILED',
+      code: (error && error.code) || 'WRITE_FAILED',
       message: String(error && error.message || error),
     });
   }
@@ -315,7 +315,8 @@ function bumpRevision_() {
 
 /* ================================================================ snapshot */
 
-var PORTRAIT_MAX_CHARS = 12000000; // ~9 MB of image bytes, before base64
+// Keep in step with MAX_BYTES in assets/js/image.js (9 MiB becomes ~12.58M chars).
+var PORTRAIT_MAX_CHARS = 12600000;
 
 function portraits_() {
   var db = openDb_();
@@ -820,43 +821,99 @@ function extensionForMime_(mime) {
 }
 
 function upsertPortrait_(db, portrait) {
-  if (!portrait || !portrait.key) return;
+  if (!portrait || !portrait.key) throw codedError_('The portrait has no key.', 'BAD_PORTRAIT');
   var data = String(portrait.data || '');
-  if (!data) return;
+  if (!data) throw codedError_('The portrait has no image data.', 'BAD_PORTRAIT');
   if (data.length > PORTRAIT_MAX_CHARS) {
-    throw new Error('Portrait is too large (max ~9 MB).');
+    throw codedError_('Portrait is too large (max ~9 MB).', 'PORTRAIT_TOO_LARGE');
   }
   var mime = String(portrait.mime || 'image/webp');
   if (mime.indexOf('image/') !== 0) mime = 'image/webp';
+
+  // A Portraits tab created by an older version has no driveId column, and a
+  // write to a missing column is silently dropped. Add the column first.
+  ensureHeaders_(db, 'Portraits');
 
   var blob = Utilities.newBlob(
     Utilities.base64Decode(data),
     mime,
     'loandom-' + portrait.key + extensionForMime_(mime),
   );
-  var file = DriveApp.createFile(blob);
-  try {
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  } catch (sharingError) {
-    // The owner can still use it; a private file will not load in the browser.
-  }
-
   var existing = db.Portraits.byId[String(portrait.key)];
   var oldId = existing ? String(existing.obj.driveId || '') : '';
-  if (oldId) {
+  var file = DriveApp.createFile(blob);
+  var driveId = file.getId();
+
+  try {
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (sharingError) {
+      throw codedError_(
+        'Drive would not share the portrait (link sharing is blocked for this account), so other devices cannot load it.',
+        'PORTRAIT_SHARING',
+      );
+    }
+    if (String(file.getSharingAccess()) !== String(DriveApp.Access.ANYONE_WITH_LINK)) {
+      throw codedError_(
+        'Drive kept the portrait private, so other devices cannot load it.',
+        'PORTRAIT_SHARING',
+      );
+    }
+
+    var record = { key: String(portrait.key), mime: mime, driveId: driveId, updatedAt: now_() };
+    if (existing) updateRow_(db, 'Portraits', record.key, record);
+    else append_(db, 'Portraits', record);
+
+    var saved = db.Portraits.byId[String(portrait.key)];
+    if (!saved || String(saved.obj.driveId || '') !== String(driveId)) {
+      throw codedError_(
+        'The Portraits tab did not store the Drive file id. Delete the tab and run setup() again.',
+        'PORTRAIT_ROW',
+      );
+    }
+  } catch (error) {
+    // The row is not usable, so do not leave an orphan file behind.
+    try {
+      file.setTrashed(true);
+    } catch (trashError) {
+      /* best effort */
+    }
+    throw error;
+  }
+
+  // Only drop the previous file once the new id is safely in the sheet.
+  if (oldId && oldId !== driveId) {
     try {
       DriveApp.getFileById(oldId).setTrashed(true);
     } catch (trashError) {
       /* already gone */
     }
   }
+}
 
-  var record = { key: String(portrait.key), mime: mime, driveId: file.getId(), updatedAt: now_() };
-  if (existing) {
-    updateRow_(db, 'Portraits', record.key, record);
-  } else {
-    append_(db, 'Portraits', record);
+function codedError_(message, code) {
+  var error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+/** Add any declared column that a hand-edited or legacy tab is missing. */
+function ensureHeaders_(db, name) {
+  var table = db[name];
+  if (!table) return;
+  var headers = table.headers;
+  var missing = TABS[name].filter(function (header) {
+    return headers.indexOf(header) < 0;
+  });
+  if (!missing.length) return;
+  missing.forEach(function (header) {
+    headers.push(header);
+  });
+  var sheet = table.sheet;
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumns(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
   }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
 }
 
 function deletePortrait_(db, key) {

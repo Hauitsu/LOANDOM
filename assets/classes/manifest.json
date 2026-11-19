@@ -1,0 +1,326 @@
+{
+  "schema": 1,
+  "retrievedAt": "2026-11-17",
+  "rosterAsOf": "2026-11-17",
+  "canonicalClassCount": 30,
+  "iconCount": 30,
+  "source": {
+    "emblemBase": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/",
+    "cssMapping": "https://cdn-lostark.game.onstove.com/2018/obt/assets/css/information.pc.css?20261109140012",
+    "koreanRegistry": "https://cdn-lostark.game.onstove.com/2018/obt/assets/js/pc.js?20261109140012"
+  },
+  "globalEvidence": [
+    "https://www.playlostark.com/en-us/game/classes",
+    "https://www.playlostark.com/en-us/game/releases/guardians-rage",
+    "https://www.playlostark.com/en-us/game/releases/dimensions-unbound"
+  ],
+  "notes": "The GLOBAL classes page listed 29 subclass cards on the retrieval date. Guardianknight is confirmed by its official Guardians' Rage release page; Dimensionalist is confirmed by the official Dimensions Unbound release page (launch 2026-09-16), giving 30 canonical GLOBAL/WESTERN classes. No consistent Western per-class emblem set was published; the official Korean common/class SVGs are mapped by the official information.pc.css selectors and saved under GLOBAL display filenames.",
+  "license": {
+    "owner": "Smilegate RPG / Amazon Games",
+    "codeLicense": "MIT (applies to repository code, not to these emblem files)",
+    "artworkLicense": "No license claimed. Reuse permission unknown. Bundled for this unofficial fan tool.",
+    "ccCaveat": "The CC BY-NC-SA 4.0 terms advertised on the official Artwork and Fankit pages apply only to images/videos registered on those pages, not to /Class pages or these common/class SVGs."
+  },
+  "classes": [
+    {
+      "name": "Berserker",
+      "group": "Warrior",
+      "file": "berserker.svg",
+      "sourceFile": "berserker.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/berserker.svg",
+      "sha256": "f6df9feb096fceb1ff4b0cb40f8319b500f5df2ddd31807a608657516edc3741",
+      "bytes": 5940,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Destroyer",
+      "group": "Warrior",
+      "file": "destroyer.svg",
+      "sourceFile": "destroyer.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/destroyer.svg",
+      "sha256": "e95ea77a3a9200251a8b5b88a17744d7e3cfcb94644f41471d036cff0125534a",
+      "bytes": 14937,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Gunlancer",
+      "group": "Warrior",
+      "file": "gunlancer.svg",
+      "sourceFile": "warlord.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/warlord.svg",
+      "sha256": "1df4a2a7448f0dee29392bcec78a47a4a7332397b066eb8ece112ce228e380f5",
+      "bytes": 7710,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Paladin",
+      "group": "Warrior",
+      "file": "paladin.svg",
+      "sourceFile": "holyknight.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/holyknight.svg",
+      "sha256": "1542b3d82fd5bbb39409f3a64c59c0937937dabe7d39d4391622fc3d75351da6",
+      "bytes": 8431,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Slayer",
+      "group": "Warrior",
+      "file": "slayer.svg",
+      "sourceFile": "slayer.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/slayer.svg",
+      "sha256": "743157d14f8c5eb5a897e663b305233292a57d3a003b809dd80e067207df9ea6",
+      "bytes": 7268,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Valkyrie",
+      "group": "Warrior",
+      "file": "valkyrie.svg",
+      "sourceFile": "valkyrie.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/valkyrie.svg",
+      "sha256": "58e6cff6e92a15886a43f4b69ca622eeaeb0bdc9e7a0f3ecdd13ced3b4936a42",
+      "bytes": 14796,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Striker",
+      "group": "Martial Artist",
+      "file": "striker.svg",
+      "sourceFile": "striker.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/striker.svg",
+      "sha256": "b9239a45ccd910fd1b9737a130cd9c64ef0a2f94f51f4cb1f30ddd34d659e4c8",
+      "bytes": 20163,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Wardancer",
+      "group": "Martial Artist",
+      "file": "wardancer.svg",
+      "sourceFile": "battlemaster.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/battlemaster.svg",
+      "sha256": "3c18ac724367dd086840e284d9dd4ed8521f9cb49591ba8441107679c83b5bf5",
+      "bytes": 13649,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Scrapper",
+      "group": "Martial Artist",
+      "file": "scrapper.svg",
+      "sourceFile": "infighter.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/infighter.svg",
+      "sha256": "ab0783b1067867327adbedc2e29ac00732c453d96a9194d2bd0110ef2e344413",
+      "bytes": 7696,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Soulfist",
+      "group": "Martial Artist",
+      "file": "soulfist.svg",
+      "sourceFile": "soulmaster.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/soulmaster.svg",
+      "sha256": "caa8840653d707f98c536b1833606d561e5f78402097aead68e521672adcb7d6",
+      "bytes": 9478,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Glaivier",
+      "group": "Martial Artist",
+      "file": "glaivier.svg",
+      "sourceFile": "lancemaster.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/lancemaster.svg",
+      "sha256": "3ff05e5449c597b280e362346ae31b0b469d64e0fdcde9b1f46e196d3246ae91",
+      "bytes": 15663,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Breaker",
+      "group": "Martial Artist",
+      "file": "breaker.svg",
+      "sourceFile": "breaker.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/breaker.svg",
+      "sha256": "b30e85c8bd6f88082a6aa52df10fe45ac286e37625538a5c4982639b9345c704",
+      "bytes": 13775,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Gunslinger",
+      "group": "Gunner",
+      "file": "gunslinger.svg",
+      "sourceFile": "gunslinger.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/gunslinger.svg",
+      "sha256": "f2802fc47f2b8a308946fa8717b0af4fed4fa87c6d6684c267018c2583ce06b3",
+      "bytes": 10171,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Artillerist",
+      "group": "Gunner",
+      "file": "artillerist.svg",
+      "sourceFile": "blaster.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/blaster.svg",
+      "sha256": "718f3d7f0505db31e0d040f06526930592d5095fb41221be4ad2f7b89878a37c",
+      "bytes": 10376,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Deadeye",
+      "group": "Gunner",
+      "file": "deadeye.svg",
+      "sourceFile": "devilhunter.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/devilhunter.svg",
+      "sha256": "483da727eaf905ea9e1e35e00cdb19e03fc2eb028dfbbc5b369e6c7d4fce3742",
+      "bytes": 9224,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Sharpshooter",
+      "group": "Gunner",
+      "file": "sharpshooter.svg",
+      "sourceFile": "hawkeye.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/hawkeye.svg",
+      "sha256": "a5f8c3d46473da149487b265b4a9fc8c5a09b8110d7ae7c1c1de9029f69bb4da",
+      "bytes": 7772,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Machinist",
+      "group": "Gunner",
+      "file": "machinist.svg",
+      "sourceFile": "scouter.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/scouter.svg",
+      "sha256": "6346dae9a447dd5c461ba91f5de67137a02bb91a64dbd5fd5c5891ce502462dc",
+      "bytes": 5362,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Bard",
+      "group": "Mage",
+      "file": "bard.svg",
+      "sourceFile": "bard.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/bard.svg",
+      "sha256": "46178d78575146c3f244610303416534e6a9659ba91a2d6fdeda4a286ce30c3f",
+      "bytes": 5964,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Sorceress",
+      "group": "Mage",
+      "file": "sorceress.svg",
+      "sourceFile": "elementalmaster.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/elementalmaster.svg",
+      "sha256": "db7112651156517cb4351fd9756e2c3792456a8375a8ba4d267e49a083949e09",
+      "bytes": 8151,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Arcanist",
+      "group": "Mage",
+      "file": "arcanist.svg",
+      "sourceFile": "arcana.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/arcana.svg",
+      "sha256": "a5db1046fee6b83c8e035eaa28995c7e76b4f10a5bff653607c76bc30343b0c6",
+      "bytes": 7520,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Summoner",
+      "group": "Mage",
+      "file": "summoner.svg",
+      "sourceFile": "summoner.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/summoner.svg",
+      "sha256": "4a8087dd0ad3642a848e61e3cf09e0a3f05d102352cb02e1684a5c420423cb5f",
+      "bytes": 7785,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Shadowhunter",
+      "group": "Assassin",
+      "file": "shadowhunter.svg",
+      "sourceFile": "demonic.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/demonic.svg",
+      "sha256": "2c9f7e35713474543a80a8addbc30972adcb0ef83e63cba45054f3793644fcad",
+      "bytes": 6587,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Deathblade",
+      "group": "Assassin",
+      "file": "deathblade.svg",
+      "sourceFile": "blade.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/blade.svg",
+      "sha256": "d195753548cf3ccc9283d8c3a6c1c53ed17ad3089ffcc867700f4cf60f872681",
+      "bytes": 7736,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Reaper",
+      "group": "Assassin",
+      "file": "reaper.svg",
+      "sourceFile": "reaper.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/reaper.svg",
+      "sha256": "11bcebd040b866e70527d87db55c0d73fc2cf5e5a99f8b6a196c85b6b33ff6b9",
+      "bytes": 6266,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Souleater",
+      "group": "Assassin",
+      "file": "souleater.svg",
+      "sourceFile": "souleater.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/souleater.svg",
+      "sha256": "f5dc083d2e78c16c82b0a0a21d953ea3f0275aa93fb3ef2bc67e9548eb050a09",
+      "bytes": 6709,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Artist",
+      "group": "Specialist",
+      "file": "artist.svg",
+      "sourceFile": "artist.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/artist.svg",
+      "sha256": "b4fc7c7818ac9d6db7af5e3b0587f156bae953b851f5a6be9a3011b8dc5079c6",
+      "bytes": 3297,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Aeromancer",
+      "group": "Specialist",
+      "file": "aeromancer.svg",
+      "sourceFile": "aeromancer.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/aeromancer.svg",
+      "sha256": "4b19c2ec539eec7ab0d9d77016c122e76d4d0da25413ed0ce67091006371931b",
+      "bytes": 10632,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Wildsoul",
+      "group": "Specialist",
+      "file": "wildsoul.svg",
+      "sourceFile": "wildsoul.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/wildsoul.svg",
+      "sha256": "fcf1f97f3539a482ea1d8ef4010777ce5805904e1ce360271abd278623e3e3e3",
+      "bytes": 8650,
+      "viewBox": "0 0 50 50"
+    },
+    {
+      "name": "Dimensionalist",
+      "group": "Specialist",
+      "file": "dimensionalist.svg",
+      "sourceFile": "dimension_master.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/dimension_master.svg",
+      "sha256": "818cd7a8edc0668730a2cc4506cd3cfa4c885e40de14869712c6776f972a96e9",
+      "bytes": 11942,
+      "viewBox": "0 0 100 100"
+    },
+    {
+      "name": "Guardianknight",
+      "group": "Guardianknight",
+      "file": "guardianknight.svg",
+      "sourceFile": "dragon_knight.svg",
+      "url": "https://cdn-lostark.game.onstove.com/2018/obt/assets/images/common/class/dragon_knight.svg",
+      "sha256": "19bcb58f46f215295018f7d46bb9e7ef40a32d79b3e5b0314f21dc087c933188",
+      "bytes": 7162,
+      "viewBox": "0 0 50 50"
+    }
+  ]
+}

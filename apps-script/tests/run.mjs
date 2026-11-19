@@ -1,178 +1,10 @@
-/* Minimal fake of the Apps Script runtime, enough to exercise Code.gs.
-   Not shipped — used to validate the sheet API logic offline. */
+/* Backend checks for Code.gs against a fake Apps Script runtime.
+   Run from anywhere: node apps-script/tests/run.mjs */
 
 import fs from 'node:fs';
-import vm from 'node:vm';
-import crypto from 'node:crypto';
+import { createFakeRuntime } from './lib/fake-runtime.mjs';
 
-class Range {
-  constructor(sheet, row, col, numRows, numCols) {
-    this.sheet = sheet;
-    this.row = row;
-    this.col = col;
-    this.numRows = numRows;
-    this.numCols = numCols;
-  }
-  getValues() {
-    const out = [];
-    for (let r = 0; r < this.numRows; r++) {
-      const line = [];
-      for (let c = 0; c < this.numCols; c++) {
-        const value = this.sheet.cells[this.row - 1 + r]?.[this.col - 1 + c];
-        line.push(value === undefined ? '' : value);
-      }
-      out.push(line);
-    }
-    return out;
-  }
-  setValues(values) {
-    values.forEach((line, r) => {
-      const target = this.row - 1 + r;
-      this.sheet.cells[target] = this.sheet.cells[target] || [];
-      line.forEach((value, c) => {
-        this.sheet.cells[target][this.col - 1 + c] = value;
-      });
-    });
-    this.sheet.trim();
-    return this;
-  }
-  setValue(value) { return this.setValues([[value]]); }
-  setFontWeight() { return this; }
-  setBackground() { return this; }
-  setFontColor() { return this; }
-  setNumberFormat() { return this; }
-}
-
-class Sheet {
-  constructor(name) { this.name = name; this.cells = []; }
-  trim() {
-    while (this.cells.length && this.cells[this.cells.length - 1].every((v) => v === '' || v === undefined)) {
-      this.cells.pop();
-    }
-  }
-  getDataRange() {
-    return this.getRange(1, 1, Math.max(this.getLastRow(), 1), Math.max(this.getLastColumn(), 1));
-  }
-  getLastRow() {
-    let last = 0;
-    this.cells.forEach((row, i) => {
-      if (row.some((v) => v !== '' && v !== undefined && v !== null)) last = i + 1;
-    });
-    return last;
-  }
-  getLastColumn() { return this.cells.reduce((m, row) => Math.max(m, row.length), 0); }
-  getMaxColumns() { return Math.max(this.getLastColumn(), 12); }
-  getRange(row, col, numRows = 1, numCols = 1) { return new Range(this, row, col, numRows, numCols); }
-  appendRow(values) {
-    const row = this.getLastRow() + 1;
-    this.getRange(row, 1, 1, values.length).setValues([values]);
-  }
-  deleteRow(n) { this.cells.splice(n - 1, 1); }
-  clearContents() { this.cells = []; }
-  setFrozenRows() {}
-}
-
-class Spreadsheet {
-  constructor(name, timezone = 'UTC') {
-    this.name = name;
-    this.timezone = timezone;
-    this.sheets = [];
-  }
-  getName() { return this.name; }
-  getSpreadsheetTimeZone() { return this.timezone; }
-  getSheets() { return this.sheets; }
-  getSheetByName(name) { return this.sheets.find((s) => s.name === name) || null; }
-  insertSheet(name) { const s = new Sheet(name); this.sheets.push(s); return s; }
-  deleteSheet(sheet) { this.sheets = this.sheets.filter((s) => s !== sheet); }
-  toast() {}
-}
-
-const ss = new Spreadsheet('LOANDOM');
-const props = new Map();
-const properties = {
-  getProperty: (k) => (props.has(k) ? props.get(k) : null),
-  setProperty: (k, v) => props.set(k, String(v)),
-  deleteProperty: (k) => props.delete(k),
-};
-
-const driveFiles = new Map();
-let driveSeq = 0;
-
-const context = {
-  console,
-  JSON,
-  Math,
-  Date,
-  String,
-  Number,
-  Object,
-  Array,
-  Boolean,
-  parseFloat,
-  parseInt,
-  isNaN,
-  Error,
-  SpreadsheetApp: {
-    getActiveSpreadsheet: () => ss,
-    getActive: () => ss,
-    openById: () => ss,
-  },
-  PropertiesService: { getScriptProperties: () => properties },
-  LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-  ContentService: {
-    MimeType: { JSON: 'application/json' },
-    createTextOutput: (text) => ({
-      text,
-      setMimeType() { return this; },
-    }),
-  },
-  Utilities: {
-    getUuid: () => crypto.randomUUID(),
-    base64Decode: (value) => Buffer.from(String(value || ''), 'base64'),
-    newBlob: (bytes, mimeType, name) => ({ bytes, mimeType, name }),
-  },
-  DriveApp: {
-    Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' },
-    Permission: { VIEW: 'VIEW' },
-    createFile(blob) {
-      driveSeq += 1;
-      const id = `drv_${driveSeq}`;
-      driveFiles.set(id, { blob, trashed: false, sharing: null });
-      return {
-        getId: () => id,
-        setSharing(access, permission) {
-          driveFiles.get(id).sharing = [access, permission];
-        },
-      };
-    },
-    getFileById(id) {
-      if (!driveFiles.has(id)) throw new Error(`missing drive file ${id}`);
-      return {
-        setTrashed(value) {
-          driveFiles.get(id).trashed = value;
-        },
-      };
-    },
-  },
-  Logger: { log: (...args) => console.log(...args) },
-  BAD_PIN_TEST: true,
-};
-context.globalThis = context;
-
-const code = fs.readFileSync(new URL('../Code.gs', import.meta.url), 'utf8');
-vm.createContext(context);
-vm.runInContext(code, context);
-
-const call = (name, ...args) => context[name](...args);
-
-function get(params) {
-  const res = call('doGet', { parameter: params });
-  return JSON.parse(res.text);
-}
-function post(body) {
-  const res = call('doPost', { postData: { contents: JSON.stringify(body) } });
-  return JSON.parse(res.text);
-}
+const { ss, call, get, post, driveFiles, setSharing } = createFakeRuntime();
 
 let failures = 0;
 const check = (label, condition, extra = '') => {
@@ -322,6 +154,51 @@ let pdel = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.delete', ke
 check('portrait delete accepted', pdel.ok === true);
 check('portrait gone', post({ op: 'portraits' }).items.length === 0);
 
+console.log('portrait regressions');
+const portraitSheet = ss.getSheetByName('Portraits');
+// A tab created before Drive storage had no driveId column and silently dropped it.
+portraitSheet.getRange(1, 3).setValue('data');
+portraitSheet.getRange(2, 1, 1, 4).setValues([['c_old', 'image/png', 'AAAA', '2026-01-01T00:00:00.000Z']]);
+let legacy = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.upsert', portrait: { key: 'c_legacy', mime: 'image/png', data: 'AAAA' } }] });
+check('legacy tab: portrait accepted', legacy.ok === true && legacy.applied === 1, JSON.stringify(legacy));
+const legacyHeaders = portraitSheet.getRange(1, 1, 1, portraitSheet.getLastColumn()).getValues()[0];
+check('legacy tab: driveId column added', legacyHeaders.indexOf('driveId') >= 0, JSON.stringify(legacyHeaders));
+const legacyRow = portraitSheet.getRange(2, 1, 1, 5).getValues()[0];
+check('legacy tab: existing row keeps its values', legacyRow[3] === '2026-01-01T00:00:00.000Z' && !legacyRow[4], JSON.stringify(legacyRow));
+pitems = post({ op: 'portraits' });
+const legacyItem = pitems.items.find((item) => item.key === 'c_legacy');
+check('legacy tab: portrait listed with a Drive id', Boolean(legacyItem && legacyItem.driveId), JSON.stringify(pitems.items));
+check('legacy tab: id-less rows stay hidden', pitems.items.every((item) => item.key !== 'c_old'), JSON.stringify(pitems.items));
+
+const firstId = legacyItem && legacyItem.driveId;
+let again = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.upsert', portrait: { key: 'c_legacy', mime: 'image/png', data: 'BBBB' } }] });
+pitems = post({ op: 'portraits' });
+const replaced = pitems.items.filter((item) => item.key === 'c_legacy');
+check('re-upload replaces the row', again.ok === true && replaced.length === 1 && replaced[0].driveId !== firstId, JSON.stringify(replaced));
+check('re-upload trashes the previous Drive file', driveFiles.get(firstId).trashed === true);
+
+setSharing('throw');
+let blocked = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.upsert', portrait: { key: 'c_private', mime: 'image/png', data: 'AAAA' } }] });
+check('unshareable portrait reported, not saved', blocked.ok === false && blocked.code === 'PORTRAIT_SHARING', JSON.stringify(blocked));
+check('unshareable portrait leaves no row', post({ op: 'portraits' }).items.every((item) => item.key !== 'c_private'));
+const newestFile = Array.from(driveFiles.keys()).pop();
+check('unshareable upload file is trashed', driveFiles.get(newestFile).trashed === true);
+
+setSharing('silent');
+blocked = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.upsert', portrait: { key: 'c_private', mime: 'image/png', data: 'AAAA' } }] });
+check('file left private is reported too', blocked.ok === false && blocked.code === 'PORTRAIT_SHARING', JSON.stringify(blocked));
+setSharing('ok');
+
+blocked = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.upsert', portrait: { key: 'c_empty' } }] });
+check('portrait without data is rejected', blocked.ok === false && blocked.code === 'BAD_PORTRAIT', JSON.stringify(blocked));
+
+// MAX_BYTES in assets/js/image.js is 9 MiB; that must still fit the server cap.
+const nineMib = 'B'.repeat(12582912);
+let huge = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.upsert', portrait: { key: 'c_max', mime: 'image/png', data: nineMib } }] });
+check('largest accepted client image uploads', huge.ok === true && huge.applied === 1, JSON.stringify(huge).slice(0, 120));
+let over = post({ pin: '1234', op: 'mutate', ops: [{ type: 'portrait.upsert', portrait: { key: 'c_over', mime: 'image/png', data: 'B'.repeat(12600001) } }] });
+check('oversized portrait is rejected', over.ok === false && over.code === 'PORTRAIT_TOO_LARGE', JSON.stringify(over).slice(0, 120));
+
 console.log('player.upsert + raid.upsert');
 res = post({ op: 'mutate', pin: '1234', ops: [
   { type: 'player.upsert', player: { id: 'p2', name: 'OIS', tag: 'OIS', color: '#f59e0b', order: 20 } },
@@ -332,6 +209,25 @@ snap = get({ op: 'snapshot' });
 check('player added', snap.data.players.some((p) => p.id === 'p2'));
 check('raid added', snap.data.raids.some((r) => r.id === 'r3' && r.goldTradable === 48000));
 check('revision advanced', Number(snap.revision) > Number(rev));
+
+console.log('roster tooltip sizing');
+const css = fs.readFileSync(new URL('../../assets/css/app.css', import.meta.url), 'utf8');
+const appSource = fs.readFileSync(new URL('../../assets/js/app.js', import.meta.url), 'utf8');
+const rule = (selector) => css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([\\s\\S]*?)\\}`))?.[1] || '';
+const charTip = rule('.char-tip');
+const tipMedia = rule('.tip-media');
+const tipImg = rule('.tip-media img');
+check('tooltip width is bounded on desktop', /width:\s*min\(300px,\s*calc\(100vw\s*-\s*16px\)\)/.test(charTip), charTip);
+check('tooltip portrait desktop bounds are 104x144', /--tip-portrait-w:\s*104px/.test(charTip) && /--tip-portrait-h:\s*144px/.test(charTip), charTip);
+check('portrait frame consumes the bounded dimensions', /width:\s*var\(--tip-portrait-w\)/.test(tipMedia) && /height:\s*var\(--tip-portrait-h\)/.test(tipMedia), tipMedia);
+check('portrait keeps the whole image with object-fit contain', /object-fit:\s*contain/.test(tipImg), tipImg);
+const mobileStart = css.indexOf('@media (max-width: 480px)');
+const mobileCss = mobileStart >= 0 ? css.slice(mobileStart, mobileStart + 400) : '';
+check('narrow viewport shrinks portrait to 80x120', /--tip-portrait-w:\s*80px/.test(mobileCss) && /--tip-portrait-h:\s*120px/.test(mobileCss), mobileCss);
+const showTipStart = appSource.indexOf('function showCharTip');
+const showTip = showTipStart >= 0 ? appSource.slice(showTipStart, appSource.indexOf("document.addEventListener('mouseover'", showTipStart)) : '';
+check('tooltip reuses the original portrait source', /const pic = portraitFor\(character\)/.test(showTip) && /<img src="\$\{attr\(pic\)\}"/.test(showTip), showTip.slice(0, 240));
+check('tooltip does not size from natural image dimensions', !/sizePortrait/.test(showTip), showTip.slice(0, 240));
 
 console.log(failures ? `\n${failures} FAILURE(S)` : '\nall backend checks passed');
 process.exit(failures ? 1 : 0);

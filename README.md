@@ -32,10 +32,10 @@ No database service, no VPS, no deploy secrets. The site is three folders of fil
 
 **Roster**
 - Characters per owner with class and item level.
-- **Paste a portrait from the clipboard** (or pick a file) in the character modal — uploaded to **Google Drive by the script** and stored as a file ID in the `Portraits` tab. No re-encoding: the original bytes are kept; the UI renders it at **50% of its natural size** in the character modal and **40%** in the roster tooltip, with the aspect ratio intact.
+- **Paste a portrait from the clipboard** (or pick a file) in the character modal — uploaded to **Google Drive by the script** and stored as a file ID in the `Portraits` tab. No re-encoding: the original bytes are kept; the UI renders it at **50% of its natural size** in the character modal and inside a compact **104 × 144** frame in the roster tooltip, with the aspect ratio intact.
 - Portraits appear in the character modal, a hover tooltip, and the assignment picker on the board — never as a cropped square.
 - **Focus a single raid**: the expand button on any raid card (or `#/raid/<id>`) opens a full-width board for that raid, with larger rows and the same controls.
-- Class badges use a local class list (no external assets); set the class in the same modal.
+- Class badges use 30 bundled official vector emblems with an icon-and-name picker; custom class text still works. No runtime external-image dependency.
 - "Can run" checks against every raid's item level.
 - This-week usage chips per character, plus caps: **6 gold earners per roster**, **3 gold clears per character**.
 - Flags duplicate characters in the same raid, below-item-level assignments and over-cap clears.
@@ -55,6 +55,27 @@ No database service, no VPS, no deploy secrets. The site is three folders of fil
 - Edit the spreadsheet by hand and the app picks it up. Rows typed by hand get IDs healed on the next read.
 - Import/export JSON snapshots; push the whole local state into a blank sheet in one click.
 - **Read key + invite links**: gate reads with a key, then hand out a **member link** (read-only) or an **editor link** (includes the PIN). No accounts, no repo changes.
+
+**Keys, links and touch**
+- `[` / `]` move one week, `T` jumps back to this week.
+- The week lives in the URL (`?w=2026-11-18`), so a board, a raid focus or a ledger view is a link you can share and reload.
+- On a phone every run gets a `⋯` button for duplicate/delete; nothing hides behind hover.
+- Dialogs trap focus and restore it on close, Escape closes them, toasts announce themselves and every icon button has a name.
+
+**Feedback**
+- Every edit is optimistic: the row you touched updates at once, then shows a gold dot and a left edge until the sheet confirms it.
+- A write that fails keeps your change, turns that row red and pins a banner with the reason and a **Retry** button — it does not vanish after four seconds.
+- The header carries a status pill (**Saving… · 2**, **Not saved · 1**, **Synced 2 min. ago**) and a thin progress line during any round trip.
+- Buttons that wait say what they are doing — Connecting…, Saving…, Pushing…, Resetting…, Syncing…, Pulling…, Importing… — and disable themselves until the answer arrives.
+- `Reset sheet to demo data`, `Push data to sheet` and a sync both show a running banner (**Resetting the sheet…**) with the reason it takes time, then a plain result toast; a failure keeps the banner and **Retry** re-runs that same task.
+- A reload paints the last board from a local snapshot before the scripts finish loading, so there is no loading screen on repeat visits; the app replaces it with fresh data a moment later.
+
+**Offline & install**
+- A service worker precaches the shell, every module and the class emblems, so the board opens with no network and repeat launches read from cache instead of the network.
+- Navigations are cache-first; the HTML is refetched in the background and the "new version" banner appears only when the file actually changed. `sw.js` carries a `VERSION` — bump it on every deploy so the new files install atomically.
+- The manifest ships PNG icons plus `apple-touch-icon`, so it installs to a home screen and opens standalone with the same cache.
+- Offline, the header says so and any change stays queued until the connection returns.
+- First paint is a skeleton of the board, and the connect form marks the field with an inline error instead of only a toast.
 
 ---
 
@@ -138,8 +159,12 @@ Cost: 0. Cold start: a second or two on the first request after idle.
 ```
 index.html                 app shell
 assets/css/app.css         the entire design system
+assets/classes/            30 bundled class emblems + source/licence manifest
 assets/js/
   app.js                   shell, routing, delegated events
+  classes.js               canonical class registry, aliases, colours
+  classbadge.js            local emblem / fallback crest
+  classpicker.js           accessible grouped class picker
   store.js                 state, optimistic mutations, sync queue
   api.js                   Apps Script client + localStorage adapter
   model.js                 normalisation, gold math, week validation
@@ -164,6 +189,19 @@ runtime, so a bad change fails before it ever reaches your sheet:
 
 ```bash
 node apps-script/tests/run.mjs
+```
+
+Class registry, emblem coverage, alias and local-asset checks:
+
+```bash
+node --experimental-vm-modules apps-script/tests/class-icons.mjs
+```
+
+The portrait path (paste → save → reopen → reload) runs the real browser modules
+against the same fake backend, so it needs the VM modules flag:
+
+```bash
+node --experimental-vm-modules apps-script/tests/portrait-reload.mjs
 ```
 
 It covers setup, `replaceAll`, revision short-circuiting, run toggles, cell
@@ -205,6 +243,6 @@ Payout values are editable in **Settings → Raids & payouts** because patches m
 
 ## Credits
 
-Built for a static GitHub Pages deploy with a Google Sheet as the database. Lost Ark and its content belong to Smilegate RPG / Amazon Games; this is an unofficial fan tool. Raid payout defaults were checked against the community weekly-gold tables (Lost Mokokos, September 2026) and the official release notes for Dimension Unbound and Arbiter of Death (October 2026).
+Built for a static GitHub Pages deploy with a Google Sheet as the database. Lost Ark and its content belong to Smilegate RPG / Amazon Games; this is an unofficial fan tool. Raid payout defaults were checked against the community weekly-gold tables (Lost Mokokos, September 2026) and the official release notes for Dimensions Unbound and Arbiter of Death (October 2026).
 
-MIT licensed.
+The MIT license covers the application code only. The 30 bundled class emblems in `assets/classes/` are publisher-owned artwork; no license is claimed for them and reuse permission is unknown. See `assets/classes/README.md` for sources and the licence caveat.

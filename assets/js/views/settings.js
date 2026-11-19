@@ -1,7 +1,14 @@
 /* Settings: connect the sheet, tune the gold rules, edit payouts and move data. */
 
-import { esc, attr, fmt, num, ago, weekLabel } from '../util.js';
+import { esc, attr, fmt, num, ago, weekLabel, rowStatus } from '../util.js';
 import { ico } from '../icons.js';
+import { spinner } from '../ui.js';
+
+function busyButton({ act, label, busyLabel, icon, busy }) {
+  return busy
+    ? `<button class="btn ghost" data-act="${act}" data-busy="1" aria-busy="true" disabled>${spinner(14)}<span>${busyLabel}</span></button>`
+    : `<button class="btn ghost" data-act="${act}">${ico(icon, 14)} ${label}</button>`;
+}
 
 function connectionPanel(state) {
   const connected = state.status === 'remote';
@@ -26,7 +33,7 @@ function connectionPanel(state) {
       <form class="form-grid" data-form="connect" autocomplete="off">
         <label class="field span2">
           <span>Apps Script Web App URL</span>
-          <input name="endpoint" value="${attr(state.settings.endpoint)}" placeholder="https://script.google.com/macros/s/AKfy…/exec" spellcheck="false" />
+          <input name="endpoint" value="${attr(state.settings.endpoint)}" placeholder="https://script.google.com/macros/s/AKfy…/exec" spellcheck="false" inputmode="url" />
           <small>Deploy the script in <a href="apps-script/Code.gs" download>apps-script/Code.gs</a> as a Web App: execute as <em>Me</em>, access <em>Anyone</em>. <a href="SETUP.md">Step-by-step guide</a>.</small>
         </label>
         <label class="field">
@@ -48,8 +55,8 @@ function connectionPanel(state) {
           <small>Gates writes. Use 32+ characters.</small>
         </label>
         <div class="field field-actions span2">
-          <button class="btn primary" type="submit" ${connected ? '' : ''}>${connected ? ico('refresh', 15) + ' Reconnect' : ico('link', 15) + ' Connect'}</button>
-          ${connected ? `<button class="btn ghost" type="button" data-act="pull">${ico('download', 14)} Pull</button>` : ''}
+          <button class="btn primary" type="submit">${connected ? ico('refresh', 15) + ' Reconnect' : ico('link', 15) + ' Connect'}</button>
+          ${connected ? `<button class="btn ghost" type="button" data-act="pull" ${state.sync.task === 'refresh' ? 'data-busy="1" aria-busy="true" disabled' : ''}>${state.sync.task === 'refresh' ? `${spinner(14)}<span>Pulling…</span>` : `${ico('download', 14)} Pull`}</button>` : ''}
           ${connected ? `<button class="btn ghost danger-text" type="button" data-act="disconnect">${ico('logout', 14)} Disconnect</button>` : ''}
         </div>
       </form>
@@ -79,7 +86,7 @@ function accessBlock(state) {
   const text = enforced
     ? 'Only people holding a link below can read this sheet. The public site alone shows demo data.'
     : configured
-      ? 'A read key is saved in this browser, but the script is not enforcing it. Run setReadKey("<the key>") in Apps Script and deploy a new version — until then the URL alone still reads the sheet.'
+      ? 'A read key is saved in this browser, but the script is not enforcing it. Run setReadKey("<the key>") in Apps Script and deploy a new version. Until then the URL alone still reads the sheet.'
       : 'No read key is set, so anyone with the endpoint URL can read the sheet. Generate one, set it with setReadKey(), and deploy a new version.';
 
   return `
@@ -121,7 +128,7 @@ function syncPanel(state) {
       ${sync.state === 'error' ? `<div class="inline-error">${ico('warning', 14)} ${esc(sync.error || 'Sync failed')}</div>` : ''}
 
       <div class="row-actions-line">
-        <button class="btn ghost" data-act="sync-now">${ico('refresh', 14)} Sync now</button>
+        <button class="btn ghost" data-act="sync-now" ${state.sync.task === 'refresh' ? 'data-busy="1" aria-busy="true" disabled' : ''}>${state.sync.task === 'refresh' ? `${spinner(14)}<span>Syncing…</span>` : `${ico('refresh', 14)} Sync now`}</button>
         ${sync.pending ? `<button class="btn ghost" data-act="retry">${ico('upload', 14)} Retry ${sync.pending} change${sync.pending === 1 ? '' : 's'}</button>` : ''}
       </div>
 
@@ -130,9 +137,9 @@ function syncPanel(state) {
           <h3>How gold is counted</h3>
           <p class="muted">Your sheet pays the run once per checked row. The game pays every character in the run. Pick the rule you want the totals to follow.</p>
         </div>
-        <div class="mode-switch">
-          <button class="${state.settings.goldMode === 'run' ? 'is-active' : ''}" data-act="gold-mode" data-mode="run">Per run</button>
-          <button class="${state.settings.goldMode === 'character' ? 'is-active' : ''}" data-act="gold-mode" data-mode="character">Per character</button>
+        <div class="mode-switch" role="group" aria-label="Gold counting mode">
+          <button class="${state.settings.goldMode === 'run' ? 'is-active' : ''}" data-act="gold-mode" data-mode="run" aria-pressed="${state.settings.goldMode === 'run'}">Per run</button>
+          <button class="${state.settings.goldMode === 'character' ? 'is-active' : ''}" data-act="gold-mode" data-mode="character" aria-pressed="${state.settings.goldMode === 'character'}">Per character</button>
         </div>
       </div>
 
@@ -161,6 +168,15 @@ function syncPanel(state) {
 
 function payoutsPanel(state) {
   const raids = state.data.raids.slice().sort((a, b) => num(a.order, 999) - num(b.order, 999));
+  const labelFor = {
+    short: 'Short label',
+    name: 'Raid name',
+    difficulty: 'Difficulty',
+    ilvl: 'Item level',
+    goldTradable: 'Tradable gold',
+    goldBound: 'Bound gold',
+    partySize: 'Party size',
+  };
   return `
     <section class="panel panel-wide" id="payouts">
       <header class="panel-head">
@@ -171,30 +187,30 @@ function payoutsPanel(state) {
         <table class="table raid-settings">
           <thead>
             <tr>
-              <th>Label</th><th>Name</th><th>Difficulty</th><th>iLvl</th>
-              <th>Tradable</th><th>Bound</th><th>Party</th><th>On</th><th></th>
+              <th scope="col">${labelFor.short}</th><th scope="col">${labelFor.name}</th><th scope="col">${labelFor.difficulty}</th><th scope="col">${labelFor.ilvl}</th>
+              <th scope="col">${labelFor.goldTradable}</th><th scope="col">${labelFor.goldBound}</th><th scope="col">${labelFor.partySize}</th><th scope="col">On</th><th scope="col"><span class="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
             ${raids
               .map(
                 (raid) => `
-              <tr class="${raid.active === false ? 'is-inactive' : ''}">
-                <td><input class="cell-input w-sm" value="${attr(raid.short)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="short" /></td>
-                <td><input class="cell-input" value="${attr(raid.name)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="name" /></td>
+              <tr class="${raid.active === false ? 'is-inactive' : ''}${rowStatus(state, `raid:${raid.id}`)}"${rowStatus(state, `raid:${raid.id}`) ? ' aria-busy="true"' : ''}>
+                <td><input class="cell-input w-sm" value="${attr(raid.short)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="short" aria-label="${attr(`${labelFor.short} for ${raid.name}`)}" /></td>
+                <td><input class="cell-input" value="${attr(raid.name)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="name" aria-label="${attr(`${labelFor.name} for ${raid.name}`)}" /></td>
                 <td>
-                  <select class="cell-input" data-act="raid-field" data-id="${attr(raid.id)}" data-field="difficulty">
+                  <select class="cell-input" data-act="raid-field" data-id="${attr(raid.id)}" data-field="difficulty" aria-label="${attr(`${labelFor.difficulty} for ${raid.name}`)}">
                     ${['Normal', 'Hard', 'Nightmare', 'Solo']
                       .map((d) => `<option ${raid.difficulty === d ? 'selected' : ''}>${d}</option>`)
                       .join('')}
                   </select>
                 </td>
-                <td><input class="cell-input w-xs" type="number" value="${attr(raid.ilvl)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="ilvl" /></td>
-                <td><input class="cell-input w-md" type="number" step="100" value="${attr(raid.goldTradable)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="goldTradable" /></td>
-                <td><input class="cell-input w-md" type="number" step="100" value="${attr(raid.goldBound)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="goldBound" /></td>
-                <td><input class="cell-input w-xs" type="number" value="${attr(raid.partySize)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="partySize" /></td>
-                <td><button class="switch ${raid.active !== false ? 'is-on' : ''}" data-act="raid-active" data-id="${attr(raid.id)}" title="Active"><span></span></button></td>
-                <td class="row-actions"><button class="mini danger" data-act="raid-del" data-id="${attr(raid.id)}" title="Delete raid and its runs">${ico('trash', 13)}</button></td>
+                <td><input class="cell-input w-xs" type="number" value="${attr(raid.ilvl)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="ilvl" aria-label="${attr(`${labelFor.ilvl} for ${raid.name}`)}" /></td>
+                <td><input class="cell-input w-md" type="number" step="100" value="${attr(raid.goldTradable)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="goldTradable" aria-label="${attr(`${labelFor.goldTradable} for ${raid.name}`)}" /></td>
+                <td><input class="cell-input w-md" type="number" step="100" value="${attr(raid.goldBound)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="goldBound" aria-label="${attr(`${labelFor.goldBound} for ${raid.name}`)}" /></td>
+                <td><input class="cell-input w-xs" type="number" value="${attr(raid.partySize)}" data-act="raid-field" data-id="${attr(raid.id)}" data-field="partySize" aria-label="${attr(`${labelFor.partySize} for ${raid.name}`)}" /></td>
+                <td><button class="switch ${raid.active !== false ? 'is-on' : ''}" data-act="raid-active" data-id="${attr(raid.id)}" role="switch" aria-checked="${raid.active !== false}" title="Active" aria-label="${attr(`${raid.name} active`)}"><span></span></button></td>
+                <td class="row-actions"><button class="mini danger" data-act="raid-del" data-id="${attr(raid.id)}" title="Delete raid and its runs" aria-label="${attr(`Delete ${raid.name}`)}">${ico('trash', 13)}</button></td>
               </tr>`,
               )
               .join('')}
@@ -233,8 +249,8 @@ function playersPanel(state) {
           .sort((a, b) => num(a.order, 999) - num(b.order, 999))
           .map(
             (player) => `
-          <div class="ps-edit">
-            <input type="color" value="${attr(player.color || '#a855f7')}" data-act="player-field" data-id="${attr(player.id)}" data-field="color" title="Column color" />
+          <div class="ps-edit${rowStatus(state, `player:${player.id}`)}">
+            <input type="color" value="${attr(player.color || '#a855f7')}" data-act="player-field" data-id="${attr(player.id)}" data-field="color" title="Column color" aria-label="Column color for ${attr(player.name)}" />
             <input class="cell-input" value="${attr(player.name)}" data-act="player-field" data-id="${attr(player.id)}" data-field="name" placeholder="Name" aria-label="Owner name" />
             <input class="cell-input w-xs" value="${attr(player.tag)}" data-act="player-field" data-id="${attr(player.id)}" data-field="tag" placeholder="TAG" aria-label="Owner tag" maxlength="5" />
             <span class="muted">${state.data.characters.filter((c) => c.playerId === player.id).length} characters</span>
@@ -257,9 +273,9 @@ function dataPanel(state) {
         <button class="btn ghost" data-act="import">${ico('upload', 14)} Import JSON</button>
         <input type="file" accept="application/json,.json" id="import-file" hidden />
         ${connected
-          ? `<button class="btn ghost" data-act="push-data">${ico('upload', 14)} Push data to sheet</button>
-             <button class="btn ghost" data-act="push-seed">${ico('spark', 14)} Reset sheet to demo data</button>`
-          : `<button class="btn ghost" data-act="reset-demo">${ico('refresh', 14)} Reset demo data</button>`}
+          ? `${busyButton({ act: 'push-data', label: 'Push data to sheet', busyLabel: 'Pushing…', icon: 'upload', busy: state.sync.task === 'push' })}
+             ${busyButton({ act: 'push-seed', label: 'Reset sheet to demo data', busyLabel: 'Resetting…', icon: 'spark', busy: state.sync.task === 'seed' })}`
+          : busyButton({ act: 'reset-demo', label: 'Reset demo data', busyLabel: 'Resetting…', icon: 'refresh', busy: false })}
       </div>
       <p class="muted small-note">
         Export is a full snapshot (every week). Import replaces everything — use it to move between browsers or to seed a new sheet.

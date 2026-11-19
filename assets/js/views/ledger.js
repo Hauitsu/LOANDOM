@@ -2,7 +2,7 @@
    gates, solo-mode bound gold, the BOUND GOLD cell at the bottom of the
    original sheet, ...). Kept separate so raid math stays trustworthy. */
 
-import { esc, attr, fmt, num, weekLabel } from '../util.js';
+import { esc, attr, fmt, num, weekLabel, rowStatus } from '../util.js';
 import { ico } from '../icons.js';
 
 export function renderLedger(state, stats) {
@@ -74,29 +74,30 @@ export function renderLedger(state, stats) {
       ${
         rows.length
           ? `<table class="table ledger-table">
-              <thead><tr><th>Type</th><th class="num">Amount</th><th>Source</th><th>Owner</th><th>Note</th><th></th></tr></thead>
+              <thead><tr><th scope="col">Type</th><th scope="col" class="num">Amount</th><th scope="col">Source</th><th scope="col">Owner</th><th scope="col">Note</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 ${rows
-                  .map(
-                    (row) => `
-                  <tr>
+                  .map((row) => {
+                    const status = rowStatus(state, `ledger:${row.id}`);
+                    return `
+                  <tr${status ? ` class="${status.trim()}" aria-busy="true"` : ''}>
                     <td><span class="kind kind-${row.kind}">${row.kind === 'bound' ? 'Bound' : 'Tradable'}</span></td>
                     <td class="num strong">${fmt(row.amount)}</td>
                     <td>${esc(row.source || '—')}</td>
                     <td class="muted">${esc(playerName(row.playerId) || 'Roster')}</td>
                     <td class="muted note-cell">${esc(row.note || '—')}</td>
                     <td class="row-actions">
-                      <button class="mini danger" data-act="ledger-del" data-id="${attr(row.id)}" title="Delete entry">${ico('trash', 13)}</button>
+                      <button class="mini danger" data-act="ledger-del" data-id="${attr(row.id)}" title="Delete entry" aria-label="Delete ${attr(fmt(row.amount))} gold entry">${ico('trash', 13)}</button>
                     </td>
-                  </tr>`,
-                  )
+                  </tr>`;
+                  })
                   .join('')}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="1" class="muted">Total</td>
+                  <td class="muted">Total</td>
                   <td class="num strong gold-text">${fmt(stats.ledger.totals.total)}</td>
-                  <td colspan="4" class="muted">tradable ${fmt(stats.ledger.totals.tradable)} · bound ${fmt(stats.ledger.totals.bound)}</td>
+                  <td colspan="3" class="muted">tradable ${fmt(stats.ledger.totals.tradable)} · bound ${fmt(stats.ledger.totals.bound)}</td>
                 </tr>
               </tfoot>
             </table>`

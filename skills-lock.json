@@ -1,0 +1,89 @@
+{
+  "version": 2,
+  "skills": {
+    "accessibility": {
+      "source": "addyosmani/web-quality-skills",
+      "commit": "afa8da942115f2961fdbfa80807ea0b232ff6c00",
+      "sourceType": "github",
+      "skillPath": "skills/accessibility/SKILL.md",
+      "computedHash": "c668809f5df57feb87cc06f1bc37fb340d1d92e26bacb6edbeab9258d22e76a5"
+    },
+    "color-expert": {
+      "source": "meodai/skill.color-expert",
+      "commit": "5bf7c7704d56bccc6aeea38c36bcf449abe56a6c",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "3a9c503277b6e29765655879003748019e10a7da1264963813f5268ac0d1f283"
+    },
+    "core-web-vitals": {
+      "source": "addyosmani/web-quality-skills",
+      "commit": "afa8da942115f2961fdbfa80807ea0b232ff6c00",
+      "sourceType": "github",
+      "skillPath": "skills/core-web-vitals/SKILL.md",
+      "computedHash": "de50c203aa9dafa8dee9dd8c06782e3fc610704b83c1c408e4c5ee2337c4cd2a"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "83485963700bcf11d5bf78118facb301676b69d918fee2e45a95e7f1a2840f6c"
+    },
+    "frontend-design-review": {
+      "source": "microsoft/skills",
+      "commit": "b35d2c60fac796bfd2cfd14ad3f550c73e92d9bb",
+      "sourceType": "github",
+      "skillPath": ".github/skills/frontend-design-review/SKILL.md",
+      "computedHash": "79e26e53651e90a60c1b36284cf8edf5c7f0fba9e25058b47b2adf81f7e0bdef"
+    },
+    "google-apps-script": {
+      "source": "jezweb/claude-skills",
+      "commit": "1260fa7439b36b18dbf16648ccc7fb44783f6c23",
+      "sourceType": "github",
+      "skillPath": "plugins/integrations/skills/google-apps-script/SKILL.md",
+      "computedHash": "719da588bcdff9fbe6ea5866aab67de6fc1d4bac58aee7c5183c7c45f13c27b5"
+    },
+    "offline-first-pwa": {
+      "source": "mattiasgeniar/offline-first-pwa",
+      "commit": "295ccd331bf58428f39d306e1e5e385b6b9eea73",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1cb3189e94748dd0b6a92a31f5e0749a04fe5c838c323a5da10203817637914b"
+    },
+    "performance": {
+      "source": "addyosmani/web-quality-skills",
+      "commit": "afa8da942115f2961fdbfa80807ea0b232ff6c00",
+      "sourceType": "github",
+      "skillPath": "skills/performance/SKILL.md",
+      "computedHash": "06902ebc4a8b91bfb8d1a99a03f186f0535b03d1a776ef751206104ef9b86c4c"
+    },
+    "security-best-practices": {
+      "source": "openai/skills",
+      "commit": "49f948faa9258a0c61caceaf225e179651397431",
+      "sourceType": "github",
+      "skillPath": "skills/.curated/security-best-practices/SKILL.md",
+      "computedHash": "f3a018deca655724357a5576d36026b78f174a97094d42d3ef5f7ff08c9c1f27"
+    },
+    "wcag-accessibility": {
+      "source": "mrKanoh/wcag-accessibility-audit-skill",
+      "commit": "332dcee51322dd5eca60de26b082bf594770e4e0",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "dc91f70f8d14014d895e8a1a5a094ae52099fc6c83024f163af8cb1809662128"
+    },
+    "web-quality-audit": {
+      "source": "addyosmani/web-quality-skills",
+      "commit": "afa8da942115f2961fdbfa80807ea0b232ff6c00",
+      "sourceType": "github",
+      "skillPath": "skills/web-quality-audit/SKILL.md",
+      "computedHash": "fed16ecc3591b557381b15f4c1659b5536f064cecea851799c2dad4668b325b4"
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/webapp-testing/SKILL.md",
+      "computedHash": "48cd9a742a59250edec6db89cf081ef5465f365e2133f6d6c5e29c380b754b7d"
+    }
+  }
+}

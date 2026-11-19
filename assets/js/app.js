@@ -39,7 +39,6 @@ import {
   buildInvite,
   savePortrait,
   removePortrait,
-  refreshPortraits,
   currentStats,
 } from './store.js';
 import { $, esc, attr, fmt, num, weekLabel, weekYear, ago, download, colorFor } from './util.js';
@@ -50,7 +49,11 @@ import {
   closeModal,
   confirmAction,
   openCharacterPopover,
+  openActionMenu,
   closePopover,
+  withBusy,
+  setButtonBusy,
+  spinner,
 } from './ui.js';
 import { renderBoard } from './views/board.js';
 import { renderRoster } from './views/roster.js';
@@ -58,9 +61,10 @@ import { renderSummary } from './views/summary.js';
 import { renderLedger } from './views/ledger.js';
 import { renderSettings } from './views/settings.js';
 import { portraitFor, portraitFallbackFor } from './portraits.js';
-import { classColor, classInfo, CLASSES } from './classes.js';
+import { classColor, classInfo } from './classes.js';
 import { classBadge } from './classbadge.js';
-import { readPortraitFile, displayWidthFor, TOOLTIP_RATIO } from './image.js';
+import { classPicker, wireClassPicker } from './classpicker.js';
+import { readPortraitFile, displayWidthFor } from './image.js';
 
 const ROUTES = {
   board: { label: 'Board', icon: 'sword', render: renderBoard },
@@ -77,6 +81,38 @@ const weekFromHash = () => {
   return { route: ROUTES[route] ? route : 'board', raidId: '' };
 };
 
+/* The week lives in ?w=YYYY-MM-DD so a week view can be linked and restored. */
+const WEEK_PARAM = 'w';
+const ISO_WEEK = /^\d{4}-\d{2}-\d{2}$/;
+
+let offline = navigator.onLine === false;
+let updateReady = Boolean(window.__loandomUpdate);
+
+window.addEventListener('online', () => {
+  offline = false;
+  render();
+});
+window.addEventListener('offline', () => {
+  offline = true;
+  render();
+});
+window.addEventListener('loandom:update', () => {
+  updateReady = true;
+  render();
+});
+
+function weekFromUrl() {
+  const value = new URLSearchParams(location.search).get(WEEK_PARAM) || '';
+  return ISO_WEEK.test(value) ? value : '';
+}
+
+function syncWeekUrl(week) {
+  const url = new URL(location.href);
+  if (url.searchParams.get(WEEK_PARAM) === week) return;
+  url.searchParams.set(WEEK_PARAM, week);
+  history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
 function applyHash() {
   const { route, raidId } = weekFromHash();
   setFocusRaid(raidId);
@@ -89,24 +125,40 @@ function syncPill() {
   const { status, sync } = state;
   if (status !== 'remote') {
     return `<button class="sync-pill is-demo" data-act="goto" data-route="settings" title="Data lives in this browser" aria-label="Demo mode, data lives in this browser">
-      ${ico('cloudOff', 14)} <span>Demo · local</span>
+      ${ico('cloudOff', 14)} <span aria-live="polite">Demo · local</span>
     </button>`;
   }
   if (sync.state === 'saving') {
-    return `<button class="sync-pill is-saving" disabled aria-label="Saving">${ico('upload', 14)} <span>Saving…</span></button>`;
+    const task = TASKS[sync.task];
+    const label = task ? task.label : `Saving…${sync.pending ? ` · ${sync.pending}` : ''}`;
+    return `<button class="sync-pill is-saving" disabled aria-busy="true" aria-label="${attr(label)}">${spinner(13)} <span aria-live="polite">${esc(label)}</span></button>`;
   }
   if (sync.state === 'error') {
-    return `<button class="sync-pill is-error" data-act="retry" title="${attr(sync.error)}" aria-label="Sync error, retry">
-      ${ico('warning', 14)} <span>Sync error${sync.pending ? ` · ${sync.pending} queued` : ''}</span>
+    const failed = sync.failedTask;
+    const label =
+      failed === 'seed'
+        ? 'Reset failed'
+        : failed === 'push'
+          ? 'Push failed'
+          : failed === 'refresh'
+            ? 'Sync failed'
+            : `Not saved${sync.pending ? ` · ${sync.pending}` : ''}`;
+    return `<button class="sync-pill is-error" data-act="retry" title="${attr(sync.error)}" aria-label="${attr(`${label}, retry`)}">
+      ${ico('warning', 14)} <span aria-live="polite">${esc(label)}</span>
+    </button>`;
+  }
+  if (sync.pending > 0) {
+    return `<button class="sync-pill is-saving" data-act="retry" title="Changes are queued — click to send now" aria-label="${attr(`${sync.pending} queued change${sync.pending === 1 ? '' : 's'}, retry now`)}">
+      ${ico('upload', 14)} <span aria-live="polite">Queued · ${sync.pending}</span>
     </button>`;
   }
   if (state.readOnly) {
     return `<button class="sync-pill is-readonly" data-act="goto" data-route="settings" title="Read-only access — ask for the editor link" aria-label="Read-only access">
-      ${ico('key', 14)} <span>Read-only</span>
+      ${ico('key', 14)} <span aria-live="polite">Read-only</span>
     </button>`;
   }
   return `<button class="sync-pill is-on" data-act="sync-now" title="Revision ${attr(sync.revision)} · click to sync now" aria-label="Synced ${attr(ago(sync.at))}, sync now">
-    ${ico('cloud', 14)} <span>Synced ${esc(ago(sync.at))}</span>
+    ${ico('cloud', 14)} <span aria-live="polite">Synced ${esc(ago(sync.at))}</span>
   </button>`;
 }
 
@@ -116,7 +168,7 @@ function renderTopbar(stats) {
     nav.innerHTML = Object.entries(ROUTES)
       .map(
         ([id, route]) => `
-        <a class="nav-link ${state.route === id ? 'is-active' : ''}" href="#/${id}">
+        <a class="nav-link ${state.route === id ? 'is-active' : ''}" href="#/${id}"${state.route === id ? ' aria-current="page"' : ''}>
           ${ico(route.icon, 15)}<span>${route.label}</span>
         </a>`,
       )
@@ -132,7 +184,7 @@ function renderTopbar(stats) {
         <span class="week-now-year">${esc(weekYear(state.week))}</span>
       </span>
       <button class="week-arrow" data-act="week-next" aria-label="Next week">${ico('chevronRight', 16)}</button>
-      <button class="week-today" data-act="week-today" title="Jump to the current reset week">${ico('clock', 13)}</button>`;
+      <button class="week-today" data-act="week-today" title="Jump to the current reset week" aria-label="Jump to this week">${ico('clock', 13)}</button>`;
   }
 
   const pill = $('#sync-pill');
@@ -143,7 +195,7 @@ function renderTotals(stats) {
   const host = $('#totals');
   if (!host) return;
   const t = stats.totals;
-  host.innerHTML = `
+  const html = `
     <div class="totals-inner">
       <button class="total total-bound" data-act="goto" data-route="summary">
         <span class="total-label">${ico('info', 12)} Bound gold</span>
@@ -160,32 +212,211 @@ function renderTotals(stats) {
         <strong>${fmt(t.total)}</strong>
       </button>
     </div>`;
+  // #totals is a live region: only touch it when a number actually changed.
+  if (host.innerHTML === html) return;
+  host.innerHTML = html;
 }
 
 /* --------------------------------------------------------------- render */
 
 let lastRoute = null;
 
+const bootCard = `
+  <div class="sk-card">
+    <div class="sk-row"><span class="sk title"></span><span class="sk pill" style="margin-left:auto"></span></div>
+    <div class="sk-row"><span class="sk short"></span><span class="sk"></span></div>
+    <div class="sk-row"><span class="sk"></span><span class="sk"></span><span class="sk"></span></div>
+    <div class="sk-row"><span class="sk"></span><span class="sk"></span><span class="sk"></span></div>
+  </div>`;
+
+function bootSkeleton() {
+  return `<div class="boot-skeleton" role="status" aria-live="polite">
+    <p class="boot-line"><span class="spinner" style="--sp:14px" aria-hidden="true"></span>Loading your week…</p>
+    <div class="skeleton-grid" aria-hidden="true">${bootCard}${bootCard}</div>
+  </div>`;
+}
+
+const TASKS = {
+  seed: {
+    label: 'Resetting sheet…',
+    title: 'Resetting the sheet to demo data…',
+    hint: 'Every tab is replaced. A large sheet can take a few seconds.',
+  },
+  push: {
+    label: 'Pushing data…',
+    title: 'Pushing your data to the sheet…',
+    hint: 'Every tab is replaced with what is loaded here.',
+  },
+  refresh: {
+    label: 'Syncing…',
+    title: 'Syncing with the sheet…',
+    hint: 'Pulling the latest revision.',
+  },
+};
+
+/** Long tasks and failed round trips are shown, not just toasted. */
+function renderSyncAlert() {
+  const host = $('#sync-alert');
+  if (!host) return;
+  const sync = state.sync;
+  let html = '';
+
+  if (sync.task) {
+    const task = TASKS[sync.task] || { title: 'Working…', hint: 'Waiting for the sheet.' };
+    html = `
+      <div class="sync-alert is-task" role="status" aria-live="polite">
+        <span class="alert-icon" aria-hidden="true">${spinner(15)}</span>
+        <div>
+          <strong>${esc(task.title)}</strong>
+          <span class="muted">${esc(task.hint)}</span>
+        </div>
+      </div>`;
+  } else if (sync.state === 'error') {
+    const failed = sync.failedTask;
+    const queued = sync.pending > 0;
+    const count = `${sync.pending} change${sync.pending === 1 ? '' : 's'}`;
+    const title =
+      failed === 'seed'
+        ? 'The sheet reset failed.'
+        : failed === 'push'
+          ? 'Pushing to the sheet failed.'
+          : failed === 'refresh'
+            ? 'Could not reach the sheet.'
+            : `${count} not saved yet.`;
+    html = `
+      <div class="sync-alert" role="alert">
+        <span class="alert-icon" aria-hidden="true">${ico('warning', 16)}</span>
+        <div>
+          <strong>${esc(title)}</strong>
+          <span>${esc(sync.error || 'The last request failed.')}</span>
+          ${queued ? '<span class="muted">It stays queued and retries automatically.</span>' : ''}
+        </div>
+        <button class="btn small ghost" data-act="retry">${ico('refresh', 14)} Retry</button>
+      </div>`;
+  } else if (offline) {
+    html = `
+      <div class="sync-alert is-offline" role="status">
+        <span class="alert-icon" aria-hidden="true">${ico('cloudOff', 16)}</span>
+        <div>
+          <strong>You're offline.</strong>
+          <span class="muted">The board keeps working. Changes queue here and sync when the connection returns.</span>
+        </div>
+      </div>`;
+  } else if (updateReady) {
+    html = `
+      <div class="sync-alert is-update" role="status">
+        <span class="alert-icon" aria-hidden="true">${ico('spark', 16)}</span>
+        <div>
+          <strong>A new version is ready.</strong>
+          <span class="muted">Refresh to load it.</span>
+        </div>
+        <button class="btn small primary" data-act="reload-app">Refresh</button>
+      </div>`;
+  }
+
+  if (host.innerHTML !== html) host.innerHTML = html;
+}
+
+/* A full view re-render replaces the DOM. Keep the caret, the typed value of
+   unmanaged inputs and any open <details> where the user left them. */
+function captureFocus(view) {
+  const active = document.activeElement;
+  if (!active || !view.contains(active)) return null;
+  const holder = active.closest('[data-act]');
+  const name = active.getAttribute?.('name');
+  const form = active.closest('form[data-form]');
+  let selector = '';
+  if (holder) {
+    const id = holder.dataset.id || '';
+    const field = holder.dataset.field || '';
+    selector = `[data-act="${holder.dataset.act}"]${id ? `[data-id="${id}"]` : ''}${field ? `[data-field="${field}"]` : ''}`;
+  } else if (name && form) {
+    const player = form.dataset.player ? `[data-player="${form.dataset.player}"]` : '';
+    selector = `form[data-form="${form.dataset.form}"]${player} [name="${name}"]`;
+  }
+  if (!selector) return null;
+  const type = (active.getAttribute?.('type') || 'text').toLowerCase();
+  const texty = active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && !['checkbox', 'radio', 'color', 'file', 'range', 'submit', 'button'].includes(type));
+  return {
+    selector,
+    start: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+    end: typeof active.selectionEnd === 'number' ? active.selectionEnd : null,
+    value: texty ? active.value : null,
+    details: Array.from(view.querySelectorAll('details')).map((el) => el.open),
+  };
+}
+
+function restoreFocus(view, snap) {
+  if (!snap) return;
+  Array.from(view.querySelectorAll('details')).forEach((el, index) => {
+    if (typeof snap.details[index] === 'boolean') el.open = snap.details[index];
+  });
+  const next = view.querySelector(snap.selector);
+  if (!next) return;
+  if (snap.value != null && 'value' in next) next.value = snap.value;
+  next.focus({ preventScroll: true });
+  if (snap.start != null && typeof next.setSelectionRange === 'function') {
+    try {
+      next.setSelectionRange(snap.start, snap.end);
+    } catch {
+      /* not a text control */
+    }
+  }
+}
+
+/* The inline script in index.html paints this snapshot before the modules
+   arrive, so a reload shows the board instead of a loading state. */
+let bootCacheTimer = null;
+function cacheBootView(view) {
+  clearTimeout(bootCacheTimer);
+  bootCacheTimer = setTimeout(() => {
+    try {
+      const html = (id) => document.getElementById(id)?.innerHTML || '';
+      localStorage.setItem('loandom.boot.v1', JSON.stringify({
+        build: document.documentElement.getAttribute('data-build'),
+        at: Date.now(),
+        week: state.week,
+        route: state.route,
+        nav: html('nav'),
+        weeknav: html('weeknav'),
+        pill: html('sync-pill'),
+        totals: html('totals'),
+        view: view.innerHTML,
+      }));
+    } catch {
+      /* storage full or blocked: the skeleton is the fallback */
+    }
+  }, 350);
+}
+
 function render() {
   if (!state.ready) {
     const view = $('#view');
-    if (view) view.innerHTML = `<div class="boot"><span class="boot-spinner"></span>Loading your week…</div>`;
+    if (view) view.innerHTML = bootSkeleton();
     return;
   }
 
   const stats = currentStats();
   renderTopbar(stats);
   renderTotals(stats);
+  renderSyncAlert();
+  document.body.classList.toggle(
+    'is-syncing',
+    state.status === 'remote' && (state.sync.state === 'saving' || state.sync.pending > 0),
+  );
 
   const view = $('#view');
   const route = ROUTES[state.route] || ROUTES.board;
+  const snap = captureFocus(view);
+  let failed = false;
   try {
     view.innerHTML = route.render(state, stats);
   } catch (error) {
+    failed = true;
     console.error(error);
     view.innerHTML = `
       <div class="empty">
-        <span class="empty-icon">${ico('warning', 22)}</span>
+        <span class="empty-icon" aria-hidden="true">${ico('warning', 22)}</span>
         <h3>This view could not render</h3>
         <p>${esc(error.message)}</p>
         <pre style="white-space:pre-wrap;font-size:11px;color:#8590a6">${esc(error.stack || '')}</pre>
@@ -195,27 +426,37 @@ function render() {
 
   if (lastRoute !== state.route) {
     window.scrollTo({ top: 0, behavior: 'instant' });
+    // Move focus with the view so the next Tab starts in the new page.
+    if (lastRoute !== null) view.focus({ preventScroll: true });
     lastRoute = state.route;
+  } else {
+    restoreFocus(view, snap);
   }
 
   document.body.dataset.route = state.route;
+  document.body.classList.toggle('is-offline', offline);
+  syncWeekUrl(state.week);
+  if (!failed) cacheBootView(view);
 }
 
 /* ---------------------------------------------------------------- modals */
 
+function wirePortraitFallback(img) {
+  const fallback = img?.dataset.portraitFallback;
+  if (!fallback) return;
+  img.addEventListener(
+    'error',
+    () => {
+      delete img.dataset.portraitFallback;
+      img.src = fallback;
+    },
+    { once: true },
+  );
+}
+
 function sizePortrait(img, onResize, ratio = 0.5) {
   if (!img) return;
-  const fallback = img.dataset.portraitFallback;
-  if (fallback) {
-    img.addEventListener(
-      'error',
-      () => {
-        delete img.dataset.portraitFallback;
-        img.src = fallback;
-      },
-      { once: true },
-    );
-  }
+  wirePortraitFallback(img);
   const apply = () => {
     if (!img.naturalWidth || !img.naturalHeight) return;
     // A share of the portrait's natural size, shrunk only on viewports that can't fit it.
@@ -258,10 +499,10 @@ function openCharacterModal(charId) {
     body: `
       <div class="portrait-edit">
         <div class="portrait-preview" style="--cc:${attr(tint)}" data-portrait-preview>
-          ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" />` : `<span data-portrait-placeholder>${esc(character.name.slice(0, 2))}</span>`}
+          ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" decoding="async" />` : `<span data-portrait-placeholder>${esc(character.name.slice(0, 2))}</span>`}
           <div class="portrait-progress" data-portrait-progress hidden>
-            <div class="progress"><span></span></div>
-            <p data-portrait-status>Preparing…</p>
+            <div class="progress" aria-hidden="true"><span></span></div>
+            <p data-portrait-status role="status" aria-live="polite">Preparing…</p>
           </div>
         </div>
         <div class="portrait-side">
@@ -271,15 +512,12 @@ function openCharacterModal(charId) {
             <button type="button" class="btn small ghost danger-text" data-portrait-remove>Remove</button>
           </div>
           <input type="file" accept="image/*" data-portrait-input hidden />
-          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Shown at 50% here and 40% in the roster tooltip, at its original aspect ratio; stored without re-encoding.</p>
+          <p class="tiny-note">Copy a portrait from anywhere, then click Paste (or press Ctrl+V). Shown at 50% here and in a compact 104 × 144 frame in the roster tooltip, at its original aspect ratio; stored without re-encoding.</p>
         </div>
       </div>
       <form class="form-grid" data-form="char-edit" data-id="${attr(character.id)}">
         <label class="field"><span>Name</span><input name="name" value="${attr(character.name)}" maxlength="24" required /></label>
-        <label class="field"><span>Class</span><input name="className" list="class-options" value="${attr(character.className)}" placeholder="e.g. Gunslinger" maxlength="24" /></label>
-        <datalist id="class-options">
-          ${CLASSES.map((entry) => `<option value="${attr(entry.name)}"></option>`).join('')}
-        </datalist>
+        ${classPicker(character.className)}
         <label class="field"><span>Item level</span><input name="ilvl" type="number" step="any" inputmode="decimal" value="${attr(character.ilvl || '')}" placeholder="1750.83" min="1" max="2000" /></label>
         <label class="field">
           <span>Owner</span>
@@ -321,6 +559,7 @@ function openCharacterModal(charId) {
       <button class="btn ghost" data-modal-close>Cancel</button>
       <button class="btn primary" data-modal-save>${ico('check', 15)} Save</button>`,
     onMount(modal) {
+      wireClassPicker(modal);
       const preview = modal.querySelector('[data-portrait-preview]');
       const fileInput = modal.querySelector('[data-portrait-input]');
       const progress = modal.querySelector('[data-portrait-progress]');
@@ -331,6 +570,9 @@ function openCharacterModal(charId) {
       let busy = false;
       let creep = null;
       let pct = 0;
+      const setBar = () => {
+        progressFill.style.transform = `scaleX(${Math.max(0, Math.min(1, pct / 100))})`;
+      };
 
       // Drive upload is the slow part and gives us no real byte progress, so show
       // an honest "in flight" bar that eases toward 90% and completes on response.
@@ -345,12 +587,12 @@ function openCharacterModal(charId) {
         progress.hidden = false;
         progressText.textContent = text;
         pct = from;
-        progressFill.style.width = `${pct}%`;
+        setBar();
         clearInterval(creep);
         creep = setInterval(() => {
           // Never move backward and never claim completion before the server answers.
           pct = Math.min(90, Math.max(pct, pct + Math.max(0.4, (90 - pct) * 0.06)));
-          progressFill.style.width = `${pct}%`;
+          setBar();
         }, 180);
       };
       const setProgress = (stage, text) => {
@@ -358,12 +600,12 @@ function openCharacterModal(charId) {
         if (text) progressText.textContent = text;
         if (stage === 'cache') pct = Math.max(pct, 96);
         else if (stage === 'upload') pct = Math.max(pct, 40);
-        progressFill.style.width = `${pct}%`;
+        setBar();
       };
       const finishProgress = async (ok) => {
         clearInterval(creep);
         pct = ok ? 100 : 0;
-        progressFill.style.width = `${pct}%`;
+        setBar();
         if (ok) await new Promise((resolve) => setTimeout(resolve, 220));
         progress.hidden = true;
         preview.classList.remove('is-busy');
@@ -377,12 +619,17 @@ function openCharacterModal(charId) {
       const paint = (url) => {
         const img = preview.querySelector('img');
         const placeholder = preview.querySelector('[data-portrait-placeholder]');
+        // A data URL cannot fail to load, so it needs no second source; a Drive
+        // URL keeps the thumbnail as a fallback.
+        const fallback = url && !url.startsWith('data:') ? portraitFallbackFor(character) : '';
+        const usableFallback = fallback && fallback !== url ? fallback : '';
         if (url) {
           if (img) {
             img.src = url;
-            delete img.dataset.portraitFallback;
+            if (usableFallback) img.dataset.portraitFallback = usableFallback;
+            else delete img.dataset.portraitFallback;
           } else if (placeholder) {
-            placeholder.outerHTML = `<img src="${attr(url)}" alt="" />`;
+            placeholder.outerHTML = `<img src="${attr(url)}" alt="" decoding="async"${usableFallback ? ` data-portrait-fallback="${attr(usableFallback)}"` : ''} />`;
           }
           const next = preview.querySelector('img');
           const apply = sizePortrait(next);
@@ -401,9 +648,8 @@ function openCharacterModal(charId) {
           paint(dataUrl);
           pct = Math.max(pct, 25);
           const result = await savePortrait(character, dataUrl, setProgress);
+          // savePortrait already refreshed the list when the upload landed.
           await finishProgress(Boolean(result?.saved));
-          // A failed upload keeps a local copy; only re-read Drive when it landed.
-          if (result?.uploaded) await refreshPortraits();
         } catch (error) {
           await finishProgress(false);
           // Restore whatever is still stored instead of leaving a blank frame.
@@ -466,18 +712,17 @@ function openCharacterModal(charId) {
         if (!form.reportValidity()) return;
         if (busy) return; // the portrait upload owns this modal until it settles
         const data = new FormData(form);
-        saveButton.disabled = true;
-        const result = updateCharacter(character.id, {
-          name: String(data.get('name')).trim(),
-          className: String(data.get('className')).trim(),
-          ilvl: num(data.get('ilvl')),
-          playerId: String(data.get('playerId')),
-          goldEarner: data.get('goldEarner') === 'on',
-          active: data.get('active') === 'on',
-        });
         // Wait for the actual sheet write instead of claiming success up front.
-        const written = await result;
-        saveButton.disabled = false;
+        const written = await withBusy(saveButton, 'Saving…', () =>
+          updateCharacter(character.id, {
+            name: String(data.get('name')).trim(),
+            className: String(data.get('className')).trim(),
+            ilvl: num(data.get('ilvl')),
+            playerId: String(data.get('playerId')),
+            goldEarner: data.get('goldEarner') === 'on',
+            active: data.get('active') === 'on',
+          }),
+        );
         closeModal();
         if (written === false) return; // flush() already showed the real error
         toast('ok', 'Character saved');
@@ -524,6 +769,11 @@ function openCellPicker(anchor, runId, playerId) {
     current: assignment?.name || '',
     onPick: (name) => {
       setCell(runId, playerId, name);
+      // The board re-rendered, so put focus back on the cell the user just filled.
+      requestAnimationFrame(() => {
+        const cell = document.querySelector(`#view .slot[data-run="${attr(runId)}"][data-player="${attr(playerId)}"]`);
+        if (cell) cell.focus({ preventScroll: true });
+      });
     },
   });
 }
@@ -600,7 +850,7 @@ function showCharTip(anchor, character) {
   const info = classInfo(character.className);
   charTip.innerHTML = `
     <div class="tip-media">
-      ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" />` : classBadge(character.className, 64)}
+      ${pic ? `<img src="${attr(pic)}" data-portrait-fallback="${attr(picFallback)}" alt="" width="104" height="144" decoding="async" />` : classBadge(character.className, 64)}
     </div>
     <div class="tip-body">
       <strong>${esc(character.name)}</strong>
@@ -610,7 +860,7 @@ function showCharTip(anchor, character) {
     </div>`;
   charTip.hidden = false;
   positionCharTip(anchor);
-  sizePortrait(charTip.querySelector('img'), () => positionCharTip(anchor), TOOLTIP_RATIO);
+  wirePortraitFallback(charTip.querySelector('img'));
 }
 
 document.addEventListener('mouseover', (event) => {
@@ -624,6 +874,18 @@ document.addEventListener('mouseout', (event) => {
   const el = event.target.closest('[data-char-tip]');
   if (!el || el.contains(event.relatedTarget)) return;
   hideCharTip();
+});
+
+// Keyboard users get the same card the mouse does.
+document.addEventListener('focusin', (event) => {
+  const el = event.target.closest?.('[data-char-tip]');
+  if (!el) return;
+  const character = state.data.characters.find((c) => c.id === el.dataset.charTip);
+  if (character) showCharTip(el, character);
+});
+
+document.addEventListener('focusout', (event) => {
+  if (event.target.closest?.('[data-char-tip]')) hideCharTip();
 });
 
 window.addEventListener('scroll', hideCharTip, true);
@@ -678,6 +940,33 @@ function blockReadOnly() {
   toast('info', 'Read-only access', 'Ask the owner for the editor link to change runs.');
 }
 
+/** A write re-renders the view; put focus back on the same control afterwards. */
+const REFOCUS_ACTIONS = new Set(['toggle', 'raid-active', 'raid-field', 'player-field', 'setting', 'gold-mode']);
+
+function refocusAction(el) {
+  if (!el || el.isConnected) return;
+  if (document.querySelector('[role="dialog"], .popover')) return;
+  const act = el.dataset.act;
+  if (!REFOCUS_ACTIONS.has(act)) return;
+  const suffix = ['id', 'field', 'mode', 'run', 'player']
+    .filter((key) => el.dataset[key])
+    .map((key) => `[data-${key}="${el.dataset[key]}"]`)
+    .join('');
+  document.querySelector(`[data-act="${act}"]${suffix}`)?.focus({ preventScroll: true });
+}
+
+async function askDeleteRun(runId) {
+  const run = state.data.runs.find((r) => r.id === runId);
+  const raid = state.data.raids.find((r) => r.id === run?.raidId);
+  const ok = await confirmAction({
+    title: 'Delete this run?',
+    message: `Run #${run?.index ?? ''} of ${raid?.short || 'this raid'} will be removed with its characters.`,
+    confirmLabel: 'Delete run',
+    danger: true,
+  });
+  if (ok) removeRun(runId);
+}
+
 document.addEventListener('click', async (event) => {
   const el = event.target.closest('[data-act]');
   if (!el) return;
@@ -687,10 +976,14 @@ document.addEventListener('click', async (event) => {
     blockReadOnly();
     return;
   }
+  if (REFOCUS_ACTIONS.has(act)) Promise.resolve().then(() => refocusAction(el));
 
   switch (act) {
     case 'goto':
       go(el.dataset.route || 'board');
+      return;
+    case 'reload-app':
+      location.reload();
       return;
     case 'week-prev':
       stepWeek(-1);
@@ -732,16 +1025,37 @@ document.addEventListener('click', async (event) => {
       duplicateRun(el.dataset.run);
       toast('ok', 'Run duplicated');
       return;
-    case 'del-run': {
+    case 'del-run':
+      await askDeleteRun(el.dataset.run);
+      return;
+    case 'run-menu': {
+      if (state.readOnly) {
+        blockReadOnly();
+        return;
+      }
       const run = state.data.runs.find((r) => r.id === el.dataset.run);
       const raid = state.data.raids.find((r) => r.id === run?.raidId);
-      const ok = await confirmAction({
-        title: 'Delete this run?',
-        message: `Run #${run?.index ?? ''} of ${raid?.short || 'this raid'} will be removed with its characters.`,
-        confirmLabel: 'Delete run',
-        danger: true,
+      openActionMenu(el, {
+        title: `Run ${run?.index ?? ''}${raid ? ` · ${raid.short || raid.name}` : ''}`,
+        items: [
+          {
+            label: 'Duplicate run',
+            hint: 'Same characters',
+            icon: 'copy',
+            onSelect: () => {
+              duplicateRun(el.dataset.run);
+              toast('ok', 'Run duplicated');
+            },
+          },
+          {
+            label: 'Delete run',
+            hint: 'Removes its characters',
+            icon: 'trash',
+            danger: true,
+            onSelect: () => askDeleteRun(el.dataset.run),
+          },
+        ],
       });
-      if (ok) removeRun(el.dataset.run);
       return;
     }
     case 'edit-char':
@@ -788,14 +1102,25 @@ document.addEventListener('click', async (event) => {
       return;
     }
     case 'sync-now':
-      await manualRefresh();
+      await withBusy(el, 'Syncing…', () => manualRefresh());
       return;
     case 'retry':
-      retryQueue();
-      toast('info', 'Retrying queued changes');
+      await withBusy(el, 'Retrying…', async () => {
+        const failed = state.sync.failedTask;
+        try {
+          if (failed === 'seed') await pushSeed();
+          else if (failed === 'push') await pushToSheet();
+          else {
+            retryQueue();
+            await manualRefresh();
+          }
+        } catch (error) {
+          toast('error', failed === 'seed' ? 'Reset failed' : failed === 'push' ? 'Push failed' : 'Sync failed', error.message);
+        }
+      });
       return;
     case 'pull':
-      await manualRefresh();
+      await withBusy(el, 'Pulling…', () => manualRefresh());
       return;
     case 'export':
       download(`loandom-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(exportPayload(), null, 2));
@@ -814,7 +1139,7 @@ document.addEventListener('click', async (event) => {
         danger: true,
       });
       if (ok) {
-        await resetDemo();
+        await withBusy(el, 'Resetting…', () => resetDemo());
         toast('ok', 'Demo data restored');
       }
       return;
@@ -829,7 +1154,7 @@ document.addEventListener('click', async (event) => {
       });
       if (!ok) return;
       try {
-        await pushToSheet();
+        await withBusy(el, 'Pushing…', () => pushToSheet());
         toast('ok', 'Sheet updated');
       } catch (error) {
         toast('error', 'Push failed', error.message);
@@ -845,7 +1170,7 @@ document.addEventListener('click', async (event) => {
       });
       if (!ok) return;
       try {
-        await pushSeed();
+        await withBusy(el, 'Resetting…', () => pushSeed());
         toast('ok', 'Sheet seeded');
       } catch (error) {
         toast('error', 'Reset failed', error.message);
@@ -859,7 +1184,7 @@ document.addEventListener('click', async (event) => {
         confirmLabel: 'Disconnect',
       });
       if (ok) {
-        disconnect();
+        await withBusy(el, 'Disconnecting…', async () => disconnect());
         toast('info', 'Disconnected — running on local data');
       }
       return;
@@ -912,6 +1237,7 @@ document.addEventListener('change', (event) => {
   const el = event.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act;
+  if (REFOCUS_ACTIONS.has(act)) Promise.resolve().then(() => refocusAction(el));
 
   if (act === 'raid-field') {
     if (state.readOnly) {
@@ -950,14 +1276,22 @@ document.addEventListener('change', (event) => {
   if (act === 'import-file') {
     const file = el.files?.[0];
     if (!file) return;
+    const button = document.querySelector('[data-act="import"]');
     const reader = new FileReader();
+    setButtonBusy(button, true, 'Importing…');
     reader.onload = () => {
       try {
         importData(String(reader.result));
         toast('ok', 'Import complete');
       } catch (error) {
         toast('error', 'Could not import that file', error.message);
+      } finally {
+        setButtonBusy(button, false);
       }
+    };
+    reader.onerror = () => {
+      toast('error', 'Could not read that file');
+      setButtonBusy(button, false);
     };
     reader.readAsText(file);
   }
@@ -979,22 +1313,35 @@ document.addEventListener('submit', async (event) => {
     const endpoint = String(data.get('endpoint') || '').trim();
     const pin = String(data.get('pin') || '').trim();
     const readKey = String(data.get('readKey') || '').trim();
+    const field = form.querySelector('input[name="endpoint"]');
+    form.querySelector('[data-connect-error]')?.remove();
+    field?.removeAttribute('aria-invalid');
     if (!endpoint) {
       toast('error', 'Paste the Apps Script /exec URL first');
+      field?.focus();
       return;
     }
     const submit = form.querySelector('button[type="submit"]');
-    const original = submit.innerHTML;
-    submit.disabled = true;
-    submit.innerHTML = `${ico('refresh', 15)} Connecting…`;
-    try {
-      await connect(endpoint, pin, readKey);
-      toast('ok', 'Connected to the sheet');
-    } catch (error) {
-      toast('error', 'Connection failed', error.message);
-    } finally {
-      submit.disabled = false;
-      submit.innerHTML = original;
+    const result = await withBusy(submit, 'Connecting…', async () => {
+      try {
+        await connect(endpoint, pin, readKey);
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, error };
+      }
+    });
+    if (result?.ok) {
+      // store.js announces the connection (and whether it seeded the sheet)
+    } else if (result) {
+      toast('error', 'Connection failed', result.error.message);
+      field?.setAttribute('aria-invalid', 'true');
+      const note = document.createElement('p');
+      note.className = 'inline-error span2';
+      note.dataset.connectError = '';
+      note.setAttribute('role', 'alert');
+      note.textContent = result.error.message;
+      form.appendChild(note);
+      field?.focus();
     }
     return;
   }
@@ -1082,7 +1429,12 @@ if (invite) {
 }
 
 applyHash();
-init().catch((error) => {
-  console.error(error);
-  toast('error', 'Could not start', error.message);
-});
+init()
+  .then(() => {
+    const fromUrl = weekFromUrl();
+    if (fromUrl && fromUrl !== state.week) setWeek(fromUrl);
+  })
+  .catch((error) => {
+    console.error(error);
+    toast('error', 'Could not start', error.message);
+  });

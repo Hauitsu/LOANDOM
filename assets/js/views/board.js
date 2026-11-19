@@ -1,6 +1,6 @@
 /* The weekly board — the interactive version of the original sheet. */
 
-import { esc, attr, fmt, num, weekLabel, colorFor, textOn } from '../util.js';
+import { esc, attr, fmt, num, weekLabel, colorFor, textOn, rowStatus } from '../util.js';
 import { ico } from '../icons.js';
 import { progressBar } from '../ui.js';
 import { classBadge } from '../classbadge.js';
@@ -24,8 +24,8 @@ function payout(raid) {
 function slotCell(row, raid, player, state, charMap) {
   const assignment = row.cells[player.id];
   if (!assignment?.name) {
-    return `<button class="slot is-empty" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}" aria-label="Assign a character">
-      <span class="slot-plus">${ico('plus', 13)}</span>
+    return `<button class="slot is-empty" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}" aria-label="Assign a character for ${attr(player.tag || player.name)}, run ${attr(row.run.index)}">
+      <span class="slot-plus" aria-hidden="true">${ico('plus', 13)}</span>
     </button>`;
   }
   const character = assignment.characterId ? charMap.get(assignment.characterId) : null;
@@ -39,10 +39,19 @@ function slotCell(row, raid, player, state, charMap) {
   ]
     .filter(Boolean)
     .join(' · ');
-  return `<button class="slot ${ilvlWarn ? 'is-warn' : ''}" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}"${character ? ` data-char-tip="${attr(character.id)}"` : ''} title="${attr(title)}">
+  const spoken = [
+    label,
+    character?.className || '',
+    character?.ilvl ? `item level ${character.ilvl}` : '',
+    ilvlWarn ? `below ${raid.short} item level ${raid.ilvl}` : '',
+    `run ${row.run.index}`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return `<button class="slot ${ilvlWarn ? 'is-warn' : ''}" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}"${character ? ` data-char-tip="${attr(character.id)}"` : ''} title="${attr(title)}" aria-label="${attr(spoken)}">
     ${classBadge(character?.className, 14)}
     <span class="slot-name">${esc(label)}</span>
-    ${ilvlWarn ? `<span class="slot-flag">${ico('warning', 11)}</span>` : ''}
+    ${ilvlWarn ? `<span class="slot-flag" aria-hidden="true">${ico('warning', 11)}</span>` : ''}
   </button>`;
 }
 
@@ -53,32 +62,37 @@ function raidCard(block, state, charMap, focused = false) {
 
   const body = rows.length
     ? rows
-        .map(
-          (row) => `
-      <div class="raid-row run-row ${row.run.cleared ? 'is-cleared' : ''}">
-        <div class="cell idx">
-          <span class="run-no">${esc(row.run.index)}</span>
+        .map((row) => {
+          const status = rowStatus(state, `run:${row.run.id}`);
+          return `
+      <div class="raid-row run-row ${row.run.cleared ? 'is-cleared' : ''}${status}" role="row" data-run="${attr(row.run.id)}"${status ? ' aria-busy="true"' : ''}>
+        <div class="cell idx" role="cell">
+          ${status ? `<span class="sync-dot${status === ' is-unsaved' ? ' is-error' : ''}" aria-hidden="true"></span>` : ''}
+          <span class="run-no" aria-hidden="true">${esc(row.run.index)}</span>
           <div class="run-tools">
-            <button class="mini" data-act="dup-run" data-run="${attr(row.run.id)}" title="Duplicate this run (same characters)">${ico('copy', 13)}</button>
-            <button class="mini danger" data-act="del-run" data-run="${attr(row.run.id)}" title="Delete this run">${ico('trash', 13)}</button>
+            <button class="mini" data-act="dup-run" data-run="${attr(row.run.id)}" title="Duplicate this run (same characters)" aria-label="Duplicate run ${attr(row.run.index)}">${ico('copy', 13)}</button>
+            <button class="mini danger" data-act="del-run" data-run="${attr(row.run.id)}" title="Delete this run" aria-label="Delete run ${attr(row.run.index)}">${ico('trash', 13)}</button>
+            <button class="mini run-menu-btn" data-act="run-menu" data-run="${attr(row.run.id)}" title="Run actions" aria-label="Run ${attr(row.run.index)} actions">${ico('more', 14)}</button>
           </div>
         </div>
-        ${players.map((player) => `<div class="cell">${slotCell(row, raid, player, state, charMap)}</div>`).join('')}
-        <div class="cell gold">
+        ${players.map((player) => `<div class="cell" role="cell">${slotCell(row, raid, player, state, charMap)}</div>`).join('')}
+        <div class="cell gold" role="cell">
           ${
             row.run.cleared
               ? `<span class="gold-value">${fmt(row.gold.total)}</span>${row.gold.claims > 1 ? `<span class="gold-mult">×${row.gold.claims}</span>` : ''}`
-              : '<span class="gold-value is-zero">—</span>'
+              : '<span class="gold-value is-zero" aria-label="No gold">—</span>'
           }
         </div>
-        <div class="cell check">
+        <div class="cell check" role="cell">
           <button class="check ${row.run.cleared ? 'on' : ''}" data-act="toggle" data-run="${attr(row.run.id)}"
-            aria-pressed="${row.run.cleared}" title="${row.run.cleared ? 'Cleared — click to uncheck' : 'Mark as cleared'}">
+            aria-pressed="${row.run.cleared}"
+            aria-label="${row.run.cleared ? `Run ${esc(row.run.index)} cleared, uncheck` : `Mark run ${esc(row.run.index)} as cleared`}"
+            title="${row.run.cleared ? 'Cleared — click to uncheck' : 'Mark as cleared'}">
             ${ico('check', 14)}
           </button>
         </div>
-      </div>`,
-        )
+      </div>`;
+        })
         .join('')
     : `<div class="raid-empty">
          <span>No runs yet for this raid.</span>
@@ -116,19 +130,19 @@ function raidCard(block, state, charMap, focused = false) {
       <span class="strip-label">${clearedRuns}/${runCount} runs</span>
     </div>
 
-    <div class="raid-table" style="--players:${players.length}">
-      <div class="raid-row head-row">
-        <div class="cell idx">#</div>
+    <div class="raid-table" style="--players:${players.length}" role="table" aria-label="${attr(raid.name)} runs">
+      <div class="raid-row head-row" role="row">
+        <div class="cell idx" role="columnheader"><span aria-hidden="true">#</span><span class="sr-only">Run</span></div>
         ${players
           .map(
             (player) => `
-          <div class="cell player-head" style="--pc:${attr(player.color || colorFor(player.name))};--pc-ink:${attr(textOn(player.color || colorFor(player.name)))}">
+          <div class="cell player-head" role="columnheader" style="--pc:${attr(player.color || colorFor(player.name))};--pc-ink:${attr(textOn(player.color || colorFor(player.name)))}">
             <span class="player-tag">${esc(player.tag || player.name)}</span>
           </div>`,
           )
           .join('')}
-        <div class="cell gold-head">Gold</div>
-        <div class="cell check-head" title="Cleared">${ico('check', 13)}</div>
+        <div class="cell gold-head" role="columnheader">Gold</div>
+        <div class="cell check-head" role="columnheader" title="Cleared">${ico('check', 13)}<span class="sr-only">Cleared</span></div>
       </div>
       ${body}
     </div>

@@ -19,11 +19,12 @@ export const num = (value, fallback = 0) => {
 
 export const fmt = (value) => new Intl.NumberFormat('en-US').format(Math.round(num(value)));
 
+const compactFmt = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+
 export const fmtK = (value) => {
   const n = Math.round(num(value));
   if (Math.abs(n) < 10000) return fmt(n);
-  if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + 'M';
-  return Math.round(n / 1000) + 'k';
+  return compactFmt.format(n);
 };
 
 export const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
@@ -123,44 +124,61 @@ export function weekRange(key) {
   return { start, end };
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthDayFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+const dayFmt = new Intl.DateTimeFormat('en-US', { day: 'numeric' });
 
 export function weekLabel(key) {
   const { start, end } = weekRange(key);
   const sameMonth = start.getMonth() === end.getMonth();
-  const left = `${MONTHS[start.getMonth()]} ${start.getDate()}`;
-  const right = sameMonth ? `${end.getDate()}` : `${MONTHS[end.getMonth()]} ${end.getDate()}`;
+  const left = monthDayFmt.format(start);
+  const right = sameMonth ? dayFmt.format(end) : monthDayFmt.format(end);
   return `${left} – ${right}`;
 }
+
+/** "Nov 11" — the week's opening day, for tight chart labels. */
+export const weekStartLabel = (key) => monthDayFmt.format(parseKey(key));
 
 export function weekYear(key) {
   return parseKey(key).getFullYear();
 }
 
 export function dayLabel(date) {
-  return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+  return monthDayFmt.format(date);
 }
 
 export function isSameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-/** "3h ago" style relative time for the sync pill. */
+/** "3 hr. ago" style relative time for the sync pill. */
+const relativeFmt = new Intl.RelativeTimeFormat('en', { numeric: 'auto', style: 'short' });
+
 export function ago(iso) {
   if (!iso) return 'never';
   const then = new Date(iso).getTime();
   if (!Number.isFinite(then)) return 'never';
   const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
   if (secs < 45) return 'just now';
-  if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.round(secs / 3600)}h ago`;
-  return `${Math.round(secs / 86400)}d ago`;
+  if (secs < 3600) return relativeFmt.format(-Math.round(secs / 60), 'minute');
+  if (secs < 86400) return relativeFmt.format(-Math.round(secs / 3600), 'hour');
+  return relativeFmt.format(-Math.round(secs / 86400), 'day');
 }
 
 /* --------------------------------------------------------------- sorting */
 
 export const byOrder = (a, b) =>
   num(a.order, 999) - num(b.order, 999) || String(a.name).localeCompare(String(b.name));
+
+/* -------------------------------------------------------------- feedback */
+
+/** '' | ' is-pending' | ' is-unsaved' for a row whose write is in flight. */
+export function rowStatus(state, key) {
+  const keys = state?.sync?.pendingKeys;
+  if (!keys || !keys.includes(key)) return '';
+  return state.sync.state === 'error' ? ' is-unsaved' : ' is-pending';
+}
+
+export const isPending = (state, key) => Boolean(state?.sync?.pendingKeys?.includes(key));
 
 /* --------------------------------------------------------------- colors */
 
@@ -172,15 +190,18 @@ export function colorFor(text) {
   return palette[Math.abs(hash) % palette.length];
 }
 
-/** Pick readable text color (black or white) for a background hex. */
+/** Pick the readable ink (near-black or white) for a background hex. */
 export function textOn(hex) {
   const clean = String(hex || '').replace('#', '');
-  if (clean.length !== 6) return '#fff';
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  const luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luma > 0.62 ? '#0b0d12' : '#ffffff';
+  if (!/^[0-9a-f]{6}$/i.test(clean)) return '#ffffff';
+  const channel = (offset) => {
+    const value = parseInt(clean.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  const luma = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+  const withWhite = 1.05 / (luma + 0.05);
+  const withBlack = (luma + 0.05) / 0.0543; // #0b0d12 counts as black
+  return withWhite >= withBlack ? '#ffffff' : '#0b0d12';
 }
 
 export function download(filename, text, type = 'application/json') {

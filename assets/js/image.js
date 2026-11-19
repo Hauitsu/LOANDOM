@@ -1,5 +1,6 @@
 /* Portraits are stored as-is (no re-encoding, no quality loss).
-   The UI renders them at 50% of their natural dimensions, preserving ratio. */
+   The character modal renders them at 50%; the roster tooltip uses a fixed
+   compact frame, both preserving the original aspect ratio. */
 
 const MAX_BYTES = 9 * 1024 * 1024; // originals go to Google Drive, not a sheet cell
 
@@ -35,6 +36,3 @@ export async function readPortraitFile(blob) {
 
 export const displayWidthFor = (naturalWidth, ratio = 0.5) =>
   Math.max(1, Math.round(naturalWidth * ratio));
-
-/** Tooltips render smaller than the character modal. */
-export const TOOLTIP_RATIO = 0.4;

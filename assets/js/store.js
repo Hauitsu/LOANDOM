@@ -51,7 +51,7 @@ export const state = {
   sheetTimeZone: null,
   focusRaidId: '',
   settings,
-  sync: { state: 'idle', revision: 0, at: null, error: '', pending: 0 },
+  sync: { state: 'idle', revision: 0, at: null, error: '', pending: 0, pendingKeys: [], task: '', failedTask: '' },
 };
 
 const listeners = new Set();
@@ -60,8 +60,44 @@ const localAdapter = createLocal(LOCAL_KEY);
 let remoteAdapter = null;
 let queue = [];
 let sending = false;
+let sendingOps = []; // the batch currently in flight, for per-row feedback
 let flushTimer = null;
 let currentFlush = null; // promise of the in-flight flush, so callers can await the real result
+
+/** Which row/cell a queued op belongs to, so the UI can show it as in flight. */
+function opKeys(op) {
+  switch (op.type) {
+    case 'run.toggle':
+    case 'run.update':
+    case 'run.delete':
+      return [`run:${op.id}`];
+    case 'run.create':
+      return [`run:${op.run?.id}`];
+    case 'cell.set':
+    case 'cell.clear':
+      return [`cell:${op.runId}:${op.playerId}`, `run:${op.runId}`];
+    case 'character.upsert':
+      return [`character:${op.character?.id}`];
+    case 'character.delete':
+      return [`character:${op.id}`];
+    case 'ledger.add':
+      return [`ledger:${op.ledger?.id}`];
+    case 'ledger.delete':
+      return [`ledger:${op.id}`];
+    case 'raid.upsert':
+      return [`raid:${op.raid?.id}`];
+    case 'raid.delete':
+      return [`raid:${op.id}`];
+    case 'player.upsert':
+      return [`player:${op.player?.id}`];
+    case 'portrait.upsert':
+      return [`portrait:${op.portrait?.key}`];
+    case 'portrait.delete':
+      return [`portrait:${op.key}`];
+    default:
+      return [];
+  }
+}
 
 export function subscribe(fn) {
   listeners.add(fn);
@@ -74,7 +110,10 @@ export function onNotice(fn) {
 }
 
 function emit() {
-  state.sync.pending = queue.length;
+  const inFlight = sendingOps.flatMap(opKeys);
+  const waiting = queue.flatMap(opKeys);
+  state.sync.pending = queue.length + sendingOps.length;
+  state.sync.pendingKeys = [...new Set([...inFlight, ...waiting])];
   listeners.forEach((fn) => fn(state));
 }
 
@@ -155,16 +194,20 @@ export async function init() {
   } else {
     await loadLocal();
   }
+  // Load portraits before the UI declares itself ready: a modal opened in the
+  // first render otherwise paints before the cache is populated.
+  await refreshPortraits();
   state.ready = true;
   emit();
-  refreshPortraits();
   startPolling();
   wireNetworkEvents();
 }
 
 /* --------------------------------------------------------------- portraits */
 
-export async function refreshPortraits({ silent = true } = {}) {
+const migrationTried = new Set();
+
+export async function refreshPortraits({ silent = true, reset = false } = {}) {
   if (state.status === 'remote' && remoteAdapter) {
     try {
       const items = await remoteAdapter.portraits(settings.readKey);
@@ -174,26 +217,43 @@ export async function refreshPortraits({ silent = true } = {}) {
       const remoteKeys = new Set(remote.map((item) => item.key));
 
       const locals = portraits.localEntries();
-      const merged = remote.slice();
-      locals.forEach(([key, url]) => {
-        if (!remoteKeys.has(key)) merged.push({ key, dataUrl: url });
+      const localByKey = new Map(locals.map((local) => [local.key, local]));
+      // Carry the device copy alongside the Drive id instead of replacing it.
+      // Reopening the character modal then renders bytes that cannot fail.
+      const stale = [];
+      const merged = remote.map((item) => {
+        const local = localByKey.get(item.key);
+        // Bytes belong to the file they were saved with; a newer upload from
+        // another device must win over a stale local copy.
+        const fresh = local && (!local.driveId || local.driveId === item.driveId) ? local.dataUrl : '';
+        if (local && !fresh) stale.push(item.key);
+        return { key: item.key, driveId: item.driveId, dataUrl: fresh };
+      });
+      locals.forEach((local) => {
+        if (!remoteKeys.has(local.key)) {
+          merged.push({ key: local.key, dataUrl: local.dataUrl, driveId: local.driveId });
+        }
       });
       portraits.replacePortraits(merged);
+      stale.forEach((key) => portraits.deleteLocalPortrait(key));
       emit();
 
       if (locals.length && settings.pin) {
         const ops = locals
-          .filter(([key]) => !remoteKeys.has(key))
-          .map(([key, url]) => {
-            const match = /^data:(image\/[^;]+);base64,([\s\S]+)$/i.exec(url);
-            return match ? { type: 'portrait.upsert', portrait: { key, mime: match[1], data: match[2] } } : null;
+          .filter((local) => !remoteKeys.has(local.key) && !migrationTried.has(local.key))
+          .map((local) => {
+            const match = /^data:(image\/[^;]+);base64,([\s\S]+)$/i.exec(local.dataUrl);
+            return match ? { type: 'portrait.upsert', portrait: { key: local.key, mime: match[1], data: match[2] } } : null;
           })
           .filter(Boolean);
         if (ops.length) {
+          const keys = ops.map((op) => op.portrait.key);
+          keys.forEach((key) => migrationTried.add(key));
           try {
             const res = await remoteAdapter.send(settings.pin, ops);
-            if (res.applied) {
-              portraits.clearLocalKeys(ops.map((op) => op.portrait.key));
+            if (res.applied && res.applied >= ops.length) {
+              // Keep the device copies: they are the only source that renders
+              // when Drive refuses to share the file.
               notify('ok', `Uploaded ${ops.length} portrait${ops.length === 1 ? '' : 's'} to Drive`);
             }
           } catch {
@@ -204,12 +264,12 @@ export async function refreshPortraits({ silent = true } = {}) {
       return;
     } catch (error) {
       if (!silent) notify('error', 'Could not load portraits', error.message);
-      portraits.loadLocalPortraits();
+      portraits.loadLocalPortraits({ reset });
       emit();
       return;
     }
   }
-  portraits.loadLocalPortraits();
+  portraits.loadLocalPortraits({ reset });
   emit();
 }
 
@@ -226,7 +286,7 @@ export async function savePortrait(character, dataUrl, onProgress = () => {}) {
     }
   };
 
-  portraits.setPortrait(key, dataUrl);
+  const previous = portraits.setPortrait(key, dataUrl);
   emit();
 
   if (state.status === 'remote' && remoteAdapter) {
@@ -241,43 +301,69 @@ export async function savePortrait(character, dataUrl, onProgress = () => {}) {
       ]);
       if (!res || !res.applied) throw new ApiError('Portrait storage is not deployed yet.', 'OLD_BACKEND');
       report('cache', 'Saving a copy on this device');
-      // Persisted on the sheet. Keep the original bytes on this device too so the
-      // portrait survives a Drive outage and can be re-uploaded automatically.
-      try {
-        portraits.saveLocalPortrait(key, dataUrl);
-      } catch {
-        /* device storage is a cache, not the source of truth */
-      }
       notify('ok', 'Portrait uploaded to Drive');
       await refreshPortraits();
-      return { saved: true, uploaded: true };
+      // Re-attach after the refresh: the cache entry now knows the Drive id, so
+      // the stored bytes are tagged with the file they belong to.
+      portraits.setPortrait(key, dataUrl);
+      const localCopy = keepLocalCopy(key, dataUrl);
+      emit();
+      return { saved: true, uploaded: true, localCopy };
     } catch (error) {
-      portraits.saveLocalPortrait(key, dataUrl);
       // A missing PIN or an old deployment still leaves a usable local copy, so the
-      // portrait is saved — it just does not reach Drive.
-      const localOnly = error.code === 'BAD_PIN' || error.code === 'OLD_BACKEND';
+      // portrait is saved — it just does not reach Drive. When the browser cannot
+      // hold the bytes either, the upload failure is the whole failure.
+      const localCopy = keepLocalCopy(key, dataUrl);
+      if (!localCopy) {
+        portraits.restorePortrait(key, previous);
+        emit();
+        throw new ApiError(
+          error.code === 'BAD_PIN'
+            ? 'This sheet needs a write PIN before the portrait can be stored.'
+            : 'The portrait could not be stored: the upload failed and browser storage is full.',
+          error.code || 'PORTRAIT_LOST',
+          error.message,
+        );
+      }
       if (error.code === 'BAD_PIN') {
         notify('info', 'Portrait saved on this device', 'No write PIN, so it cannot sync to the sheet.');
       } else if (error.code === 'OLD_BACKEND') {
         notify('info', 'Portrait saved on this device', 'Redeploy Code.gs to sync portraits to the sheet.');
+      } else if (error.code === 'PORTRAIT_SHARING') {
+        notify('info', 'Portrait saved on this device', 'Drive kept the file private, so it is not shared.');
       } else {
         notify('error', 'Portrait upload failed', error.message);
       }
-      return { saved: localOnly, uploaded: false, error };
+      return { saved: true, uploaded: false, localCopy, error };
     }
   }
 
   report('local', 'Saving on this device');
   portraits.saveLocalPortrait(key, dataUrl);
   notify('ok', 'Portrait saved on this device');
-  return { saved: true, uploaded: false };
+  return { saved: true, uploaded: false, localCopy: true };
+}
+
+/** Best-effort device backup; false when the browser cannot hold the bytes. */
+function keepLocalCopy(key, dataUrl) {
+  try {
+    portraits.saveLocalPortrait(key, dataUrl);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function removePortrait(character) {
   if (!character) return;
   const key = character.id || slug(character.name);
+  const alias = slug(character.name);
   portraits.removePortraitKey(key);
   portraits.deleteLocalPortrait(key);
+  if (alias && alias !== key) {
+    portraits.removePortraitKey(alias);
+    portraits.deleteLocalPortrait(alias);
+  }
   emit();
   if (state.status === 'remote' && remoteAdapter) {
     try {
@@ -313,6 +399,7 @@ async function flush() {
   }
   sending = true;
   const ops = queue.splice(0);
+  sendingOps = ops;
   state.sync.state = 'saving';
   emit();
   currentFlush = (async () => {
@@ -335,6 +422,7 @@ async function flush() {
       return false;
     } finally {
       sending = false;
+      sendingOps = [];
       currentFlush = undefined;
       emit();
     }
@@ -388,9 +476,10 @@ function wireNetworkEvents() {
 export async function manualRefresh() {
   if (state.status !== 'remote' || !remoteAdapter) return;
   try {
-    const changed = await loadRemote({ force: true });
-    if (changed) emit();
-    refreshPortraits();
+    await runTask('refresh', async () => {
+      const changed = await loadRemote({ force: true });
+      if (changed) refreshPortraits();
+    });
     notify('ok', 'Synced with the sheet');
   } catch (error) {
     notify('error', 'Sync failed', error.message);
@@ -707,26 +796,46 @@ export function disconnect() {
   state.sheetTimeZone = null;
   state.sync = { ...state.sync, state: 'ok', error: '' };
   emit();
-  refreshPortraits();
+  refreshPortraits({ reset: true });
 }
 
 export async function pushToSheet() {
   if (!remoteAdapter) throw new ApiError('Connect a sheet first.', 'NO_REMOTE');
-  const res = await remoteAdapter.send(settings.pin, [{ type: 'replaceAll', data: state.data }]);
-  await loadRemote({ force: true });
+  return runTask('push', async () => {
+    const res = await remoteAdapter.send(settings.pin, [{ type: 'replaceAll', data: state.data }]);
+    await loadRemote({ force: true });
+    emit();
+    return res;
+  });
+}
+
+/** A named long-running sheet task: drives the pill, the bar and the row states. */
+async function runTask(name, fn) {
+  state.sync = { ...state.sync, state: 'saving', task: name, failedTask: '', error: '' };
   emit();
-  return res;
+  try {
+    const result = await fn();
+    state.sync = { ...state.sync, state: 'ok', task: '', failedTask: '', error: '' };
+    emit();
+    return result;
+  } catch (error) {
+    state.sync = { ...state.sync, state: 'error', task: '', failedTask: name, error: error.message };
+    emit();
+    throw error;
+  }
 }
 
 export async function pushSeed() {
   if (!remoteAdapter) throw new ApiError('Connect a sheet first.', 'NO_REMOTE');
   const currentWeek = weekKeyFromDate(new Date(), settings.resetDay, settings.resetHour);
   const seeded = model.resolveSeed(seed, currentWeek, settings.resetDay, settings.resetHour);
-  const res = await remoteAdapter.send(settings.pin, [{ type: 'replaceAll', data: seeded }]);
-  state.data = seeded;
-  await loadRemote({ force: true });
-  emit();
-  return res;
+  return runTask('seed', async () => {
+    const res = await remoteAdapter.send(settings.pin, [{ type: 'replaceAll', data: seeded }]);
+    state.data = seeded;
+    await loadRemote({ force: true });
+    emit();
+    return res;
+  });
 }
 
 export async function resetDemo() {
@@ -740,11 +849,14 @@ export function importData(raw) {
   const data = model.normalizeData(parsed.data || parsed, { timeZone: state.sheetTimeZone || undefined });
   state.data = data;
   if (state.status === 'remote' && remoteAdapter) {
-    remoteAdapter
-      .send(settings.pin, [{ type: 'replaceAll', data }])
+    runTask('push', () =>
+      remoteAdapter
+        .send(settings.pin, [{ type: 'replaceAll', data }])
+        .then(() => loadRemote({ force: true })),
+    )
       .then(() => {
         notify('ok', 'Sheet replaced with the imported data');
-        loadRemote({ force: true }).then(() => emit());
+        emit();
       })
       .catch((error) => {
         notify('error', 'Import failed', error.message);

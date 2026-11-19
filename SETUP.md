@@ -48,7 +48,7 @@ No server, no domain, no billing. You need a Google account and five minutes.
 
 `setup()` creates the eight tabs, headers, and the default catalog (four raids, four owners). If you had `Sheet1`, it removes it when empty.
 
-> **Portraits** are uploaded to **Google Drive** by the script (original bytes, no re-encoding) and the `Portraits` tab stores only the file ID. Files are shared “anyone with the link can view” so the browser can load them. The UI renders each at **50% of its natural size**. On the next run/deploy Apps Script will ask you to authorize Drive access (`drive` scope) — approve it once. If you already have an old `Portraits` tab from earlier testing, delete it so it is recreated with the `driveId` column. Portraits stay local to one browser until the updated `Code.gs` is deployed.
+> **Portraits** are uploaded to **Google Drive** by the script (original bytes, no re-encoding) and the `Portraits` tab stores only the file ID. Files are shared “anyone with the link can view” so the browser can load them; if Drive refuses that sharing the portrait is kept in the browser instead of being reported as saved. The UI renders each at **50% of its natural size**. On the next run/deploy Apps Script will ask you to authorize Drive access (`drive` scope) — approve it once. An old `Portraits` tab from earlier testing is migrated automatically: the missing `driveId` column is added on the next portrait save.
 
 You should see a toast: *“LOANDOM sheet is ready.”*
 
