@@ -1138,3 +1138,28 @@ tr.is-unsaved > td:first-child { box-shadow: inset 2px 0 0 var(--red); }
 
 @media (max-width: 1000px) { .skeleton-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 620px) { .alert-slot { padding: 0 14px; } .sync-alert { flex-wrap: wrap; } .sync-alert .btn { margin-left: 0; } }
+
+/* ------------------------------------------------------------ drag & drop */
+
+body.is-dragging { cursor: grabbing; }
+body.is-dragging * { user-select: none; -webkit-user-select: none; }
+body.is-dragging .slot { cursor: grabbing; }
+
+.slot.is-drag-source { opacity: 0.3; border-style: dashed; }
+.slot.is-drop-target { border-color: rgba(232, 184, 75, 0.35); background: rgba(232, 184, 75, 0.05); }
+.slot.is-drop-hover {
+  border-color: var(--gold);
+  background: rgba(232, 184, 75, 0.16);
+  box-shadow: 0 0 0 2px rgba(232, 184, 75, 0.22), 0 6px 18px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+.slot.is-drop-invalid { opacity: 0.35; border-color: rgba(240, 85, 79, 0.4); }
+
+.drag-ghost {
+  position: fixed; z-index: 95; pointer-events: none;
+  display: flex; align-items: center; gap: 5px; padding: 0 8px;
+  border-radius: 8px; border: 1px solid rgba(232, 184, 75, 0.55);
+  background: #1a2233; color: var(--text); font-size: 12.5px;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%) rotate(-1.2deg) scale(1.04);
+}

@@ -28,6 +28,7 @@ No database service, no VPS, no deploy secrets. The site is three folders of fil
 - Each raid is a card: payout, item level, difficulty, progress.
 - Rows are runs; columns are roster owners; each cell is a character picker with search.
 - Tick a run → gold counts instantly. Duplicate a run to reuse a party comp.
+- **Drag a character onto another run in the same owner column to swap them** (drop on an empty cell to move it). Keyboard: focus a cell and press `Alt+↑` / `Alt+↓`.
 - Gold per run is editable per raid, and the game's tradable/bound split is a first-class field.
 
 **Roster**

@@ -667,6 +667,62 @@ export function clearCell(runId, playerId) {
   setCell(runId, playerId, '');
 }
 
+/**
+ * Swap one column's characters between two runs in a single mutation, or move
+ * a character into an empty cell. Drag/drop and Alt+Arrow both land here.
+ */
+export function swapCells(playerId, runIdA, runIdB) {
+  if (!playerId || !runIdA || !runIdB || runIdA === runIdB) return false;
+  if (!findRun(runIdA) || !findRun(runIdB)) return false;
+
+  const cellFor = (runId) =>
+    state.data.assignments.find((a) => a.runId === runId && a.playerId === playerId) || null;
+  const first = cellFor(runIdA);
+  const second = cellFor(runIdB);
+  if (!first && !second) return false;
+
+  const ops = [];
+  // Resolve hand-typed rows (name only) to a real character, as setCell does.
+  const snapshot = (cell) => {
+    if (!cell || !cell.name) return null;
+    if (cell.characterId) return { characterId: cell.characterId, name: cell.name };
+    let character = model.findCharacterByName(state.data, playerId, cell.name);
+    if (!character) {
+      character = model.makeCharacter(playerId, cell.name);
+      state.data.characters.push(character);
+      ops.push({ type: 'character.upsert', character });
+    }
+    return { characterId: character.id, name: character.name };
+  };
+
+  // Read both sides before either is written, or the second write sees the first.
+  const fromA = snapshot(first);
+  const fromB = snapshot(second);
+
+  const apply = (runId, from) => {
+    const existing = cellFor(runId);
+    if (from) {
+      if (existing) {
+        existing.characterId = from.characterId;
+        existing.name = from.name;
+        existing.updatedAt = isoNow();
+      } else {
+        state.data.assignments.push(model.makeAssignment(runId, playerId, from));
+      }
+      ops.push({ type: 'cell.set', runId, playerId, characterId: from.characterId, name: from.name });
+    } else if (existing) {
+      state.data.assignments = state.data.assignments.filter((a) => a.id !== existing.id);
+      ops.push({ type: 'cell.clear', runId, playerId });
+    }
+  };
+
+  apply(runIdA, fromB);
+  apply(runIdB, fromA);
+  queueOps(ops);
+  emit();
+  return true;
+}
+
 /* ------------------------------------------------------------- characters */
 
 export function addCharacter(playerId, name, extra = {}) {

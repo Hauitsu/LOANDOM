@@ -16,6 +16,7 @@ import {
   duplicateRun,
   removeRun,
   setCell,
+  swapCells,
   addCharacter,
   updateCharacter,
   deleteCharacter,
@@ -810,6 +811,145 @@ function openCellPicker(anchor, runId, playerId) {
   });
 }
 
+/* --------------------------------------------------------- drag to swap */
+
+const DRAG_THRESHOLD = 6;
+let drag = null;
+let suppressCellClick = false;
+
+const slotSelector = (player) => `.slot[data-player="${CSS.escape(player)}"]`;
+
+function slotAtPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const slot = el?.closest?.('.slot[data-run][data-player]');
+  return slot && !slot.disabled ? slot : null;
+}
+
+function sameColumn(a, b) {
+  return (
+    a.dataset.player === b.dataset.player &&
+    Boolean(a.closest('.raid-table')) &&
+    a.closest('.raid-table') === b.closest('.raid-table')
+  );
+}
+
+function startDrag(event) {
+  const { slot } = drag;
+  hideCharTip();
+  const rect = slot.getBoundingClientRect();
+  const ghost = slot.cloneNode(true);
+  ghost.className = 'drag-ghost';
+  ghost.removeAttribute('data-char-tip');
+  ghost.removeAttribute('title');
+  ghost.setAttribute('aria-hidden', 'true');
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  document.body.appendChild(ghost);
+  document.body.classList.add('is-dragging');
+  slot.classList.add('is-drag-source');
+  slot.closest('.raid-table')
+    ?.querySelectorAll(slotSelector(slot.dataset.player))
+    .forEach((el) => {
+      if (el !== slot) el.classList.add('is-drop-target');
+    });
+  drag.ghost = ghost;
+  drag.active = true;
+  moveGhost(event);
+}
+
+function moveGhost(event) {
+  if (!drag?.ghost) return;
+  drag.ghost.style.left = `${event.clientX}px`;
+  drag.ghost.style.top = `${event.clientY}px`;
+}
+
+function paintHover(event) {
+  document.querySelectorAll('.slot.is-drop-hover, .slot.is-drop-invalid').forEach((el) => {
+    el.classList.remove('is-drop-hover', 'is-drop-invalid');
+  });
+  const target = slotAtPoint(event.clientX, event.clientY);
+  if (!target || target === drag.slot) return;
+  target.classList.add(sameColumn(target, drag.slot) ? 'is-drop-hover' : 'is-drop-invalid');
+}
+
+function autoScroll(event) {
+  const margin = 56;
+  if (event.clientY < margin) window.scrollBy(0, -14);
+  else if (event.clientY > window.innerHeight - margin) window.scrollBy(0, 14);
+}
+
+function endDrag() {
+  if (!drag) return;
+  drag.slot.classList.remove('is-drag-source');
+  document
+    .querySelectorAll('.slot.is-drop-target, .slot.is-drop-hover, .slot.is-drop-invalid')
+    .forEach((el) => el.classList.remove('is-drop-target', 'is-drop-hover', 'is-drop-invalid'));
+  document.body.classList.remove('is-dragging');
+  drag.ghost?.remove();
+  drag = null;
+}
+
+document.addEventListener('pointerdown', (event) => {
+  // A new press always clears a leftover suppression from the previous drag.
+  suppressCellClick = false;
+  if (event.pointerType === 'touch' || event.button !== 0) return;
+  const slot = event.target.closest?.('.slot[data-run][data-player]');
+  if (!slot) return;
+  drag = { slot, pointerId: event.pointerId, x: event.clientX, y: event.clientY, active: false, ghost: null };
+});
+
+document.addEventListener('pointermove', (event) => {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  if (!drag.active) {
+    if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < DRAG_THRESHOLD) return;
+    startDrag(event);
+  }
+  event.preventDefault();
+  moveGhost(event);
+  paintHover(event);
+  autoScroll(event);
+});
+
+document.addEventListener('pointerup', (event) => {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const current = drag;
+  const wasActive = current.active;
+  const target = wasActive ? slotAtPoint(event.clientX, event.clientY) : null;
+  endDrag();
+  if (!wasActive) return;
+  // Only the click that belongs to this drag is suppressed; the next press clears it.
+  suppressCellClick = true;
+  if (!target || target === current.slot) return;
+  if (state.readOnly) {
+    blockReadOnly();
+    return;
+  }
+  if (!sameColumn(target, current.slot)) {
+    toast('info', 'Same column only', 'A character can only swap with another run of the same owner.');
+    return;
+  }
+  swapCells(current.slot.dataset.player, current.slot.dataset.run, target.dataset.run);
+});
+
+document.addEventListener('pointercancel', () => endDrag());
+
+/** Alt+↑/↓ is the keyboard equivalent of dragging one row up or down. */
+function nudgeCell(slot, step) {
+  if (state.readOnly) {
+    blockReadOnly();
+    return;
+  }
+  const table = slot.closest('.raid-table');
+  const cells = Array.from(table?.querySelectorAll(slotSelector(slot.dataset.player)) || []);
+  const target = cells[cells.indexOf(slot) + step];
+  if (!target) return;
+  const { player, run } = slot.dataset;
+  swapCells(player, run, target.dataset.run);
+  requestAnimationFrame(() => {
+    document.querySelector(`.slot[data-player="${CSS.escape(player)}"][data-run="${target.dataset.run}"]`)?.focus({ preventScroll: true });
+  });
+}
+
 /* ---------------------------------------------------------------- events */
 
 function go(route) {
@@ -1002,6 +1142,10 @@ async function askDeleteRun(runId) {
 document.addEventListener('click', async (event) => {
   const el = event.target.closest('[data-act]');
   if (!el) return;
+  if (suppressCellClick) {
+    suppressCellClick = false;
+    return;
+  }
   const act = el.dataset.act;
 
   if (state.readOnly && WRITE_ACTIONS.has(act)) {
@@ -1435,6 +1579,14 @@ document.addEventListener('keydown', (event) => {
   const tag = event.target.tagName;
   const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.target.isContentEditable;
   if (typing) return;
+  if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+    const slot = event.target.closest?.('.slot[data-run][data-player]');
+    if (slot) {
+      event.preventDefault();
+      nudgeCell(slot, event.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
+  }
   if (event.key === '[') stepWeek(-1);
   if (event.key === ']') stepWeek(1);
   if (event.key.toLowerCase() === 't') goCurrentWeek();

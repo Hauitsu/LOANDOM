@@ -24,7 +24,7 @@ function payout(raid) {
 function slotCell(row, raid, player, state, charMap) {
   const assignment = row.cells[player.id];
   if (!assignment?.name) {
-    return `<button class="slot is-empty" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}" aria-label="Assign a character for ${attr(player.tag || player.name)}, run ${attr(row.run.index)}">
+    return `<button class="slot is-empty" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}" aria-label="Assign a character for ${attr(player.tag || player.name)}, run ${attr(row.run.index)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown">
       <span class="slot-plus" aria-hidden="true">${ico('plus', 13)}</span>
     </button>`;
   }
@@ -48,7 +48,7 @@ function slotCell(row, raid, player, state, charMap) {
   ]
     .filter(Boolean)
     .join(', ');
-  return `<button class="slot ${ilvlWarn ? 'is-warn' : ''}" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}"${character ? ` data-char-tip="${attr(character.id)}"` : ''} title="${attr(title)}" aria-label="${attr(spoken)}">
+  return `<button class="slot ${ilvlWarn ? 'is-warn' : ''}" data-act="cell" data-run="${attr(row.run.id)}" data-player="${attr(player.id)}"${character ? ` data-char-tip="${attr(character.id)}"` : ''} title="${attr(`${title} · drag or Alt+↑/↓ to swap`)}" aria-label="${attr(spoken)}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown">
     ${classBadge(character?.className, 14)}
     <span class="slot-name">${esc(label)}</span>
     ${ilvlWarn ? `<span class="slot-flag" aria-hidden="true">${ico('warning', 11)}</span>` : ''}
