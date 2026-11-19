@@ -365,15 +365,25 @@ function restoreFocus(view, snap) {
 }
 
 /* The inline script in index.html paints this snapshot before the modules
-   arrive, so a reload shows the board instead of a loading state. */
+   arrive, so a reload shows the board instead of a loading state. Views are
+   kept per route: whichever page you reload, there is something to paint. */
 let bootCacheTimer = null;
 function cacheBootView(view) {
   clearTimeout(bootCacheTimer);
   bootCacheTimer = setTimeout(() => {
     try {
       const html = (id) => document.getElementById(id)?.innerHTML || '';
+      const build = document.documentElement.getAttribute('data-build');
+      let previous = null;
+      try {
+        previous = JSON.parse(localStorage.getItem('loandom.boot.v1') || 'null');
+      } catch {
+        previous = null;
+      }
+      const views = previous && previous.build === build && previous.views ? previous.views : {};
+      views[state.route] = view.innerHTML;
       localStorage.setItem('loandom.boot.v1', JSON.stringify({
-        build: document.documentElement.getAttribute('data-build'),
+        build,
         at: Date.now(),
         week: state.week,
         route: state.route,
@@ -381,7 +391,7 @@ function cacheBootView(view) {
         weeknav: html('weeknav'),
         pill: html('sync-pill'),
         totals: html('totals'),
-        view: view.innerHTML,
+        views,
       }));
     } catch {
       /* storage full or blocked: the skeleton is the fallback */

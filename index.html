@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-build="5">
+<html lang="en" data-build="6">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -133,14 +133,14 @@
           var raw = localStorage.getItem('loandom.boot.v1');
           if (!raw) return;
           var saved = JSON.parse(raw);
-          if (!saved || !saved.view || !saved.at) return;
+          if (!saved || !saved.views || !saved.at) return;
           if (saved.build !== document.documentElement.getAttribute('data-build')) return;
           if (Date.now() - saved.at > 12 * 60 * 60 * 1000) return;
 
           var route = location.hash.replace(/^#\/?/, '').split('/')[0] || 'board';
           var urlWeek = new URLSearchParams(location.search).get('w') || '';
-          var sameRoute = saved.route === route;
           var sameWeek = !urlWeek || urlWeek === saved.week;
+          var cachedView = saved.views[route];
 
           var put = function (id, html) {
             if (!html) return;
@@ -154,8 +154,8 @@
             put('weeknav', saved.weeknav);
             put('totals', saved.totals);
           }
-          if (sameRoute && sameWeek) {
-            put('view', saved.view);
+          if (sameWeek && cachedView) {
+            put('view', cachedView);
             document.documentElement.setAttribute('data-restored', '1');
           }
         } catch (error) {

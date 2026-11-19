@@ -186,6 +186,16 @@ export function createLocal(storageKey) {
       return revision;
     },
 
+    /** Keep the sheet's revision with the cached copy so the next boot can ask for "unchanged". */
+    async saveWithRevision(data, revision) {
+      const rev = revision == null ? String(Date.now()) : String(revision);
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({ revision: rev, at: new Date().toISOString(), data }),
+      );
+      return rev;
+    },
+
     async send() {
       return { ok: true };
     },

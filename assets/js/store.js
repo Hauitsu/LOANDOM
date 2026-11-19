@@ -148,6 +148,28 @@ async function loadLocal({ reset = false } = {}) {
   }
 }
 
+/** Paint the last known data (demo or the last sheet snapshot) without waiting for the network. */
+async function loadCached() {
+  try {
+    const res = await localAdapter.load();
+    if (res.empty || !res.data) return false;
+    state.data = model.normalizeData(res.data || {});
+    state.sync = { ...state.sync, state: 'ok', revision: res.revision || 0, at: res.serverTime || isoNow(), error: '' };
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+/** Persist the current data so the next boot can paint before the sheet answers. */
+function cacheSnapshot() {
+  try {
+    Promise.resolve(localAdapter.saveWithRevision(state.data, state.sync.revision)).catch(() => {});
+  } catch (error) {
+    /* private mode or quota: the boot snapshot is only an optimisation */
+  }
+}
+
 async function loadRemote({ force = false } = {}) {
   if (!remoteAdapter) return false;
   try {
@@ -164,6 +186,7 @@ async function loadRemote({ force = false } = {}) {
       error: '',
       pending: queue.length,
     };
+    cacheSnapshot();
     return true;
   } catch (error) {
     state.sync = { ...state.sync, state: 'error', error: error.message };
@@ -172,10 +195,33 @@ async function loadRemote({ force = false } = {}) {
 }
 
 export async function init() {
+  const cached = await loadCached();
+  let remote = null;
+
   if (settings.endpoint) {
     try {
-      remoteAdapter = createRemote(settings.endpoint);
+      remote = createRemote(settings.endpoint);
+      remoteAdapter = remote;
       state.status = 'remote';
+      // With a cached copy there is something to show right now; the sheet
+      // refresh then happens behind it instead of blocking the first paint.
+      if (cached) {
+        state.sync = { ...state.sync, state: 'saving', task: 'refresh' };
+        state.ready = true;
+        emit();
+      }
+    } catch (error) {
+      remoteAdapter = null;
+      state.status = 'demo';
+      state.sync = { ...state.sync, state: 'error', error: error.message };
+    }
+  }
+
+  if (!cached && !remoteAdapter) await loadLocal();
+  else if (!cached && remoteAdapter) state.data = model.emptyData();
+
+  if (remoteAdapter) {
+    try {
       const health = await remoteAdapter.health();
       state.sheetTimeZone = health.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
       state.readOnly = Boolean(health.pinRequired) && !settings.pin;
@@ -183,22 +229,21 @@ export async function init() {
       if (!health.readKeyRequired && settings.readKey) {
         notify('info', 'Read key not enforced', 'Run setReadKey("<the key>") in Apps Script and deploy a new version.');
       }
-      await loadRemote({ force: true });
+      // A cached revision lets the sheet answer "unchanged" instead of resending everything.
+      await loadRemote({ force: !cached });
     } catch (error) {
       remoteAdapter = null;
       state.status = 'demo';
-      state.sync = { ...state.sync, state: 'error', error: error.message };
-      await loadLocal();
+      state.sync = { ...state.sync, state: 'error', error: error.message, task: '', failedTask: 'refresh' };
+      if (!cached) await loadLocal();
       notify('error', 'Could not reach the Google Sheet', error.message);
     }
-  } else {
-    await loadLocal();
+    state.sync = { ...state.sync, task: '' };
   }
-  // Load portraits before the UI declares itself ready: a modal opened in the
-  // first render otherwise paints before the cache is populated.
-  await refreshPortraits();
+
   state.ready = true;
   emit();
+  refreshPortraits();
   startPolling();
   wireNetworkEvents();
 }
@@ -413,6 +458,7 @@ async function flush() {
         pending: queue.length,
       };
       if (queue.length) scheduleFlush(0);
+      cacheSnapshot();
       return true;
     } catch (error) {
       queue = ops.concat(queue);
